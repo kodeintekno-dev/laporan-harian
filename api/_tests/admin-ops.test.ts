@@ -12,15 +12,15 @@ const { getDb } = await import("../_lib/db.js");
 const { signSession, sessionCookie, adminFingerprint } = await import("../_lib/session.js");
 const { dateWib, addDays } = await import("../_lib/time.js");
 const { csvCell } = await import("../_lib/csv.js");
-const recap = await import("../admin/recap.js");
-const mark = await import("../admin/absence/mark.js");
-const revoke = await import("../admin/absence/revoke.js");
-const save = await import("../admin/report/save.js");
-const cancel = await import("../admin/report/cancel.js");
-const exportCsv = await import("../admin/export.js");
-const adminHistory = await import("../admin/history.js");
-const staffHistory = await import("../reports/history.js");
-const submit = await import("../reports/index.js");
+const recap = await import("../_handlers/admin/recap.js");
+const mark = await import("../_handlers/admin/absence/mark.js");
+const revoke = await import("../_handlers/admin/absence/revoke.js");
+const save = await import("../_handlers/admin/report/save.js");
+const cancel = await import("../_handlers/admin/report/cancel.js");
+const exportCsv = await import("../_handlers/admin/export.js");
+const adminHistory = await import("../_handlers/admin/history.js");
+const staffHistory = await import("../_handlers/reports/history.js");
+const submit = await import("../_handlers/reports/index.js");
 
 const TODAY = dateWib();
 // Tanggal tetap di masa lalu (Jumat dan Sabtu), supaya Koreksi tidak ditolak sebagai tanggal masa depan.

@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { getDb, isUniqueViolation } from "../_lib/db.js";
-import { clearedRegistrationCookie, readRegistrationToken, verifyRegistration } from "../_lib/google.js";
-import { fail, json, readJson } from "../_lib/http.js";
-import { phoneSchema } from "../_lib/phone.js";
-import { sessionCookie, signSession } from "../_lib/session.js";
-import { fullNameSchema } from "../_lib/staff.js";
+import { getDb, isUniqueViolation } from "../../_lib/db.js";
+import { clearedRegistrationCookie, readRegistrationToken, verifyRegistration } from "../../_lib/google.js";
+import { fail, json, readJson } from "../../_lib/http.js";
+import { phoneSchema } from "../../_lib/phone.js";
+import { sessionCookie, signSession } from "../../_lib/session.js";
+import { fullNameSchema } from "../../_lib/staff.js";
 
 const DISPLAY_NAME_MAX = 60;
 

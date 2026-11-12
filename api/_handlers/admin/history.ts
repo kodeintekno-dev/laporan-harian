@@ -1,8 +1,8 @@
-import { authenticateAdmin } from "../_lib/auth.js";
-import { readQueryDate } from "../_lib/admin.js";
-import { getDb } from "../_lib/db.js";
-import { fail, json } from "../_lib/http.js";
-import { toReportView } from "../_lib/report.js";
+import { authenticateAdmin } from "../../_lib/auth.js";
+import { readQueryDate } from "../../_lib/admin.js";
+import { getDb } from "../../_lib/db.js";
+import { fail, json } from "../../_lib/http.js";
+import { toReportView } from "../../_lib/report.js";
 
 const PAGE_SIZE = 31;
 

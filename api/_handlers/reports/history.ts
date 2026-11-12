@@ -1,7 +1,7 @@
-import { authenticate } from "../_lib/auth.js";
-import { getDb } from "../_lib/db.js";
-import { fail, json } from "../_lib/http.js";
-import { toReportView } from "../_lib/report.js";
+import { authenticate } from "../../_lib/auth.js";
+import { getDb } from "../../_lib/db.js";
+import { fail, json } from "../../_lib/http.js";
+import { toReportView } from "../../_lib/report.js";
 
 const PAGE_SIZE = 31;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

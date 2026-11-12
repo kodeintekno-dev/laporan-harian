@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { authenticateAdmin } from "../../_lib/auth.js";
-import { getDb } from "../../_lib/db.js";
-import { fail, json, readJson } from "../../_lib/http.js";
-import { fetchJabatan, STAFF_COLUMNS, throttleKeyPatterns, toStaffView } from "../../_lib/staff.js";
+import { authenticateAdmin } from "../../../_lib/auth.js";
+import { getDb } from "../../../_lib/db.js";
+import { fail, json, readJson } from "../../../_lib/http.js";
+import { fetchJabatan, STAFF_COLUMNS, throttleKeyPatterns, toStaffView } from "../../../_lib/staff.js";
 
 const schema = z.object({ id: z.number("id tidak valid.").int().positive() });
 

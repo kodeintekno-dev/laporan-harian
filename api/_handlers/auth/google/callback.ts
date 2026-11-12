@@ -1,4 +1,4 @@
-import { getDb } from "../../_lib/db.js";
+import { getDb } from "../../../_lib/db.js";
 import {
   clearedFlowCookie,
   exchangeCode,
@@ -8,8 +8,8 @@ import {
   signRegistration,
   verifyFlow,
   verifyIdToken,
-} from "../../_lib/google.js";
-import { sessionCookie, signSession } from "../../_lib/session.js";
+} from "../../../_lib/google.js";
+import { sessionCookie, signSession } from "../../../_lib/session.js";
 
 function redirect(location: string, cookies: string[]): Response {
   const headers = new Headers({ Location: location, "Cache-Control": "no-store" });

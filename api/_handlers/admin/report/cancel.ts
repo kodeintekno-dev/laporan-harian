@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { dateSchema, logIfChanged, reasonSchema, staffIdSchema } from "../../_lib/admin.js";
-import { authenticateAdmin } from "../../_lib/auth.js";
-import { getDb } from "../../_lib/db.js";
-import { fail, json, readJson } from "../../_lib/http.js";
-import { toReportView } from "../../_lib/report.js";
+import { dateSchema, logIfChanged, reasonSchema, staffIdSchema } from "../../../_lib/admin.js";
+import { authenticateAdmin } from "../../../_lib/auth.js";
+import { getDb } from "../../../_lib/db.js";
+import { fail, json, readJson } from "../../../_lib/http.js";
+import { toReportView } from "../../../_lib/report.js";
 
 const schema = z.object({ staffId: staffIdSchema, date: dateSchema, reason: reasonSchema });
 

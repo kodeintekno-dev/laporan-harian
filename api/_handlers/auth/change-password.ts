@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { authenticate } from "../_lib/auth.js";
-import { getDb } from "../_lib/db.js";
-import { fail, json, readJson } from "../_lib/http.js";
-import { hashPassword, newPasswordSchema, verifyPassword } from "../_lib/password.js";
-import { sessionCookie, signSession } from "../_lib/session.js";
-import { clearFailures, lockRemainingMs, recordFailure } from "../_lib/throttle.js";
+import { authenticate } from "../../_lib/auth.js";
+import { getDb } from "../../_lib/db.js";
+import { fail, json, readJson } from "../../_lib/http.js";
+import { hashPassword, newPasswordSchema, verifyPassword } from "../../_lib/password.js";
+import { sessionCookie, signSession } from "../../_lib/session.js";
+import { clearFailures, lockRemainingMs, recordFailure } from "../../_lib/throttle.js";
 
 /**
  * Buat atau ubah Password Cadangan (fallback login nomor telepon).

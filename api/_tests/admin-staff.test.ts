@@ -10,12 +10,12 @@ process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync("password-admin-panjang", 4);
 
 const { getDb } = await import("../_lib/db.js");
 const { signSession, sessionCookie, adminFingerprint } = await import("../_lib/session.js");
-const login = await import("../auth/login.js");
-const me = await import("../auth/me.js");
-const list = await import("../admin/staff/index.js");
-const update = await import("../admin/staff/update.js");
-const resetPw = await import("../admin/staff/reset-password.js");
-const jabatanEndpoint = await import("../admin/staff/jabatan.js");
+const login = await import("../_handlers/auth/login.js");
+const me = await import("../_handlers/auth/me.js");
+const list = await import("../_handlers/admin/staff/index.js");
+const update = await import("../_handlers/admin/staff/update.js");
+const resetPw = await import("../_handlers/admin/staff/reset-password.js");
+const jabatanEndpoint = await import("../_handlers/admin/staff/jabatan.js");
 
 const URL_ = "https://staff.test/api/admin/staff";
 

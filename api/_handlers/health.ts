@@ -1,4 +1,4 @@
-import { getDb } from "./_lib/db.js";
+import { getDb } from "../_lib/db.js";
 
 // Sengaja tanpa autentikasi (untuk cek deploy), dan tidak mengembalikan data apa pun selain status.
 export async function GET(): Promise<Response> {

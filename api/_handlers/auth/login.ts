@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { getDb } from "../_lib/db.js";
-import { clientIp, fail, json, readJson } from "../_lib/http.js";
-import { verifyAgainstDummy, verifyPassword, withinBcryptLimit } from "../_lib/password.js";
-import { phoneSchema } from "../_lib/phone.js";
-import { adminFingerprint, sessionCookie, signSession } from "../_lib/session.js";
-import { clearFailures, lockRemainingMs, recordFailure } from "../_lib/throttle.js";
+import { getDb } from "../../_lib/db.js";
+import { clientIp, fail, json, readJson } from "../../_lib/http.js";
+import { verifyAgainstDummy, verifyPassword, withinBcryptLimit } from "../../_lib/password.js";
+import { phoneSchema } from "../../_lib/phone.js";
+import { adminFingerprint, sessionCookie, signSession } from "../../_lib/session.js";
+import { clearFailures, lockRemainingMs, recordFailure } from "../../_lib/throttle.js";
 
 const adminSchema = z.object({
   username: z.string().trim().min(1).max(64),

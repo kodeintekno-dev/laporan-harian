@@ -13,10 +13,10 @@ process.env.ADMIN_USERNAME = "kepala";
 process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 4);
 
 const { getDb } = await import("../_lib/db.js");
-const login = await import("../auth/login.js");
-const me = await import("../auth/me.js");
-const changePassword = await import("../auth/change-password.js");
-const logout = await import("../auth/logout.js");
+const login = await import("../_handlers/auth/login.js");
+const me = await import("../_handlers/auth/me.js");
+const changePassword = await import("../_handlers/auth/change-password.js");
+const logout = await import("../_handlers/auth/logout.js");
 const { lockDurationMs } = await import("../_lib/throttle.js");
 
 function post(body: unknown, cookie?: string, ip = "10.0.0.1"): Request {

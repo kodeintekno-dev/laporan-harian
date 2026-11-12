@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { authenticateAdmin } from "../../_lib/auth.js";
-import { getDb } from "../../_lib/db.js";
-import { fail, json, readJson } from "../../_lib/http.js";
-import { displayNameSchema, fetchJabatan, fullNameSchema, STAFF_COLUMNS, toStaffView } from "../../_lib/staff.js";
+import { authenticateAdmin } from "../../../_lib/auth.js";
+import { getDb } from "../../../_lib/db.js";
+import { fail, json, readJson } from "../../../_lib/http.js";
+import { displayNameSchema, fetchJabatan, fullNameSchema, STAFF_COLUMNS, toStaffView } from "../../../_lib/staff.js";
 
 const schema = z
   .object({

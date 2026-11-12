@@ -1,4 +1,4 @@
-import { authorizationUrl, flowCookie, googleConfig, newFlow, signFlow } from "../../_lib/google.js";
+import { authorizationUrl, flowCookie, googleConfig, newFlow, signFlow } from "../../../_lib/google.js";
 
 /** Halaman login mengarahkan browser ke sini. Server membuat state, nonce, dan PKCE lalu melempar ke Google. */
 export async function GET(request: Request): Promise<Response> {

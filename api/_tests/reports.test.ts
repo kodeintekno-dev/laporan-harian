@@ -11,9 +11,9 @@ process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync("password-admin-panjang", 4);
 const { getDb } = await import("../_lib/db.js");
 const { signSession, sessionCookie } = await import("../_lib/session.js");
 const { dateWib, addDays } = await import("../_lib/time.js");
-const submit = await import("../reports/index.js");
-const today = await import("../reports/today.js");
-const history = await import("../reports/history.js");
+const submit = await import("../_handlers/reports/index.js");
+const today = await import("../_handlers/reports/today.js");
+const history = await import("../_handlers/reports/history.js");
 
 const TODAY = dateWib();
 

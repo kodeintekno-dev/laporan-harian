@@ -3,29 +3,29 @@
  * Diperlukan agar tidak melebihi batas 12 functions di Vercel Hobby plan.
  */
 
-import * as adminAbsenceMark from "./admin/absence/mark.js";
-import * as adminAbsenceRevoke from "./admin/absence/revoke.js";
-import * as adminExport from "./admin/export.js";
-import * as adminHistory from "./admin/history.js";
-import * as adminRecap from "./admin/recap.js";
-import * as adminReportCancel from "./admin/report/cancel.js";
-import * as adminReportSave from "./admin/report/save.js";
-import * as adminStaff from "./admin/staff/index.js";
-import * as adminStaffJabatan from "./admin/staff/jabatan.js";
-import * as adminStaffResetPassword from "./admin/staff/reset-password.js";
-import * as adminStaffUnlinkGoogle from "./admin/staff/unlink-google.js";
-import * as adminStaffUpdate from "./admin/staff/update.js";
-import * as authChangePassword from "./auth/change-password.js";
-import * as authGoogleCallback from "./auth/google/callback.js";
-import * as authGoogle from "./auth/google/index.js";
-import * as authLogin from "./auth/login.js";
-import * as authLogout from "./auth/logout.js";
-import * as authMe from "./auth/me.js";
-import * as authRegister from "./auth/register.js";
-import * as health from "./health.js";
-import * as reportsHistory from "./reports/history.js";
-import * as reportsIndex from "./reports/index.js";
-import * as reportsToday from "./reports/today.js";
+import * as adminAbsenceMark from "./_handlers/admin/absence/mark.js";
+import * as adminAbsenceRevoke from "./_handlers/admin/absence/revoke.js";
+import * as adminExport from "./_handlers/admin/export.js";
+import * as adminHistory from "./_handlers/admin/history.js";
+import * as adminRecap from "./_handlers/admin/recap.js";
+import * as adminReportCancel from "./_handlers/admin/report/cancel.js";
+import * as adminReportSave from "./_handlers/admin/report/save.js";
+import * as adminStaff from "./_handlers/admin/staff/index.js";
+import * as adminStaffJabatan from "./_handlers/admin/staff/jabatan.js";
+import * as adminStaffResetPassword from "./_handlers/admin/staff/reset-password.js";
+import * as adminStaffUnlinkGoogle from "./_handlers/admin/staff/unlink-google.js";
+import * as adminStaffUpdate from "./_handlers/admin/staff/update.js";
+import * as authChangePassword from "./_handlers/auth/change-password.js";
+import * as authGoogleCallback from "./_handlers/auth/google/callback.js";
+import * as authGoogle from "./_handlers/auth/google/index.js";
+import * as authLogin from "./_handlers/auth/login.js";
+import * as authLogout from "./_handlers/auth/logout.js";
+import * as authMe from "./_handlers/auth/me.js";
+import * as authRegister from "./_handlers/auth/register.js";
+import * as health from "./_handlers/health.js";
+import * as reportsHistory from "./_handlers/reports/history.js";
+import * as reportsIndex from "./_handlers/reports/index.js";
+import * as reportsToday from "./_handlers/reports/today.js";
 
 type Handler = (req: Request) => Promise<Response>;
 type Module = Partial<Record<"GET" | "POST" | "PUT" | "PATCH" | "DELETE", Handler>>;
