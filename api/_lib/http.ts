@@ -32,8 +32,6 @@ export function clientIp(request: Request): string {
  */
 export function ensureRequest(request: Request | unknown): Request {
   if (request instanceof Request) return request;
-  // Fallback: bangun Request dari properti yang ada. Ini tidak akan terjadi di production
-  // yang normal, tetapi melindungi dari edge case platform yang melewatkan objek bukan-Request.
   const url = (request as { url?: string }).url ?? "/";
   const method = ((request as { method?: string }).method ?? "GET").toUpperCase();
   const headers = (request as { headers?: Record<string, string> | string }).headers ?? {};
@@ -43,10 +41,14 @@ export function ensureRequest(request: Request | unknown): Request {
       return [l.slice(0, i), l.slice(i + 1).trim()];
     }) : Object.entries(headers as Record<string, string>),
   );
-  const body = (request as { body?: string | null }).body ?? null;
+  const init: RequestInit = { method, headers: normalizedHeaders };
+  // Konstruktor Request menolak body pada GET dan HEAD, termasuk string kosong.
+  if (method !== "GET" && method !== "HEAD") {
+    init.body = (request as { body?: string | null }).body;
+  }
   return new Request(
     url.startsWith("http") ? url : `https://x${url}`,
-    { method, headers: normalizedHeaders, body: body ?? undefined },
+    init,
   );
 }
 

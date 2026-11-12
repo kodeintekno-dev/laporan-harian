@@ -13,6 +13,7 @@ process.env.ADMIN_USERNAME = "kepala";
 process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 4);
 
 const { getDb } = await import("../_lib/db.js");
+const { default: api } = await import("../[...path].js");
 const login = await import("../_handlers/auth/login.js");
 const me = await import("../_handlers/auth/me.js");
 const changePassword = await import("../_handlers/auth/change-password.js");
@@ -181,6 +182,30 @@ describe("sesi", () => {
 
   it("tanpa cookie ditolak", async () => {
     expect((await me.GET(get())).status).toBe(401);
+  });
+
+  it("router mengabaikan body GET dan tetap membaca cookie sesi", async () => {
+    await seedStaff();
+    const request = { method: "GET", url: "/api/auth/me", body: "" };
+
+    expect((await api(request)).status).toBe(401);
+
+    const loginResponse = await api({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: STAFF_PHONE, password: STAFF_PASSWORD, mode: "staff" }),
+    });
+    expect(loginResponse.status).toBe(200);
+
+    const res = await api({ ...request, headers: { cookie: cookieOf(loginResponse) } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ role: "staff", fullName: "Budi Santoso" });
+  });
+
+  it("router mengabaikan body HEAD dan mengembalikan status method yang sesuai", async () => {
+    const res = await api({ method: "HEAD", url: "/api/auth/me", body: "" });
+    expect(res.status).toBe(405);
   });
 
   it("token palsu ditolak", async () => {
