@@ -26,7 +26,7 @@ import * as health from "./_handlers/health.js";
 import * as reportsHistory from "./_handlers/reports/history.js";
 import * as reportsIndex from "./_handlers/reports/index.js";
 import * as reportsToday from "./_handlers/reports/today.js";
-import { json } from "./_lib/http.js";
+import { ensureRequest, json } from "./_lib/http.js";
 
 type Handler = (req: Request) => Promise<Response>;
 type Module = Partial<Record<"GET" | "POST" | "PUT" | "PATCH" | "DELETE", Handler>>;
@@ -57,11 +57,12 @@ const routes: Array<{ pattern: URLPattern; module: Module }> = [
   { pattern: new URLPattern({ pathname: "/api/admin/staff/update" }), module: adminStaffUpdate },
 ];
 
-export default async function handler(request: Request): Promise<Response> {
-  const method = request.method as keyof Module;
+export default async function handler(request: Request | unknown): Promise<Response> {
+  const normalized = ensureRequest(request);
+  const method = (normalized.method ?? "GET") as keyof Module;
 
   for (const { pattern, module } of routes) {
-    if (pattern.test(request.url)) {
+    if (pattern.test(normalized.url)) {
       const fn = module[method];
       if (!fn) {
         return new Response(JSON.stringify({ error: "Method tidak diizinkan." }), {
@@ -72,7 +73,7 @@ export default async function handler(request: Request): Promise<Response> {
       // Boundary: pastikan setiap exception di dalam handler menghasilkan JSON 500,
       // bukan crash/502 dari platform. Pesan detail disembunyikan di produksi.
       try {
-        return await fn(request);
+        return await fn(normalized);
       } catch (error) {
         const message = process.env.VERCEL
           ? "Terjadi kesalahan pada server."
