@@ -25,33 +25,6 @@ export function clientIp(request: Request): string {
   return forwarded || "unknown";
 }
 
-/**
- * Pastikan objek request adalah Request standar yang punya headers.get dan url absolut.
- * Di Vercel, kadang request yang sampai punya headers sebagai string/plain object, atau url relatif.
- * Membungkusnya membuat semua consumer (authenticate, new URL(request.url), dst.) aman.
- */
-export function ensureRequest(request: Request | unknown): Request {
-  if (request instanceof Request) return request;
-  const url = (request as { url?: string }).url ?? "/";
-  const method = ((request as { method?: string }).method ?? "GET").toUpperCase();
-  const headers = (request as { headers?: Record<string, string> | string }).headers ?? {};
-  const normalizedHeaders = new Headers(
-    typeof headers === "string" ? headers.split("\r\n").map((l) => {
-      const i = l.indexOf(":");
-      return [l.slice(0, i), l.slice(i + 1).trim()];
-    }) : Object.entries(headers as Record<string, string>),
-  );
-  const init: RequestInit = { method, headers: normalizedHeaders };
-  // Konstruktor Request menolak body pada GET dan HEAD, termasuk string kosong.
-  if (method !== "GET" && method !== "HEAD") {
-    init.body = (request as { body?: string | null }).body;
-  }
-  return new Request(
-    url.startsWith("http") ? url : `https://x${url}`,
-    init,
-  );
-}
-
 type Parsed<T> = { ok: true; data: T } | { ok: false; response: Response };
 
 /**

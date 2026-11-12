@@ -184,27 +184,25 @@ describe("sesi", () => {
     expect((await me.GET(get())).status).toBe(401);
   });
 
-  it("router mengabaikan body GET dan tetap membaca cookie sesi", async () => {
+  it("Web Handler merutekan login dan memeriksa cookie sesi", async () => {
     await seedStaff();
-    const request = { method: "GET", url: "/api/auth/me", body: "" };
 
-    expect((await api(request)).status).toBe(401);
+    expect((await api.fetch(get())).status).toBe(401);
 
-    const loginResponse = await api({
+    const loginResponse = await api.fetch(new Request("https://staff.test/api/auth/login", {
       method: "POST",
-      url: "/api/auth/login",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ phone: STAFF_PHONE, password: STAFF_PASSWORD, mode: "staff" }),
-    });
+    }));
     expect(loginResponse.status).toBe(200);
 
-    const res = await api({ ...request, headers: { cookie: cookieOf(loginResponse) } });
+    const res = await api.fetch(get(cookieOf(loginResponse)));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ role: "staff", fullName: "Budi Santoso" });
   });
 
-  it("router mengabaikan body HEAD dan mengembalikan status method yang sesuai", async () => {
-    const res = await api({ method: "HEAD", url: "/api/auth/me", body: "" });
+  it("Web Handler mengembalikan 405 untuk HEAD pada endpoint sesi", async () => {
+    const res = await api.fetch(new Request("https://staff.test/api/auth/me", { method: "HEAD" }));
     expect(res.status).toBe(405);
   });
 

@@ -31,6 +31,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError("Tidak dapat terhubung ke server. Periksa koneksi Anda.", 0);
   }
   const body = await res.json().catch(() => ({}));
+  if (init.signal?.aborted) throw new ApiError("Tidak dapat terhubung ke server. Periksa koneksi Anda.", 0);
   if (!res.ok) throw new ApiError(body.error ?? "Terjadi kesalahan.", res.status);
   return body as T;
 }
@@ -201,7 +202,7 @@ export const api = {
     request<HistoryPage>(`/api/reports/history${before ? `?before=${encodeURIComponent(before)}` : ""}`),
   submitReport: (tasks: string[], note: string) =>
     request<{ report: Report }>("/api/reports", { method: "POST", body: JSON.stringify({ tasks, note }) }),
-  me: () => request<Me>("/api/auth/me"),
+  me: () => request<Me>("/api/auth/me", { signal: AbortSignal.timeout(10_000) }),
   loginAdmin: (username: string, password: string) =>
     request<Me>("/api/auth/login", { method: "POST", body: JSON.stringify({ mode: "admin", username, password }) }),
   loginStaff: (phone: string, password: string) =>
