@@ -19,9 +19,16 @@ export function App() {
       setState({ status: "ready", me: await api.me() });
       setLoadError(null);
     } catch (e) {
+      // 401 = sesi tidak valid -> ke login. Error jaringan (500/502/timeout)
+      // tetap ke login + tampilkan pesan error, supaya UI tidak stuck di "Memuat...".
       if (e instanceof ApiError && e.status === 401) setState({ status: "anonymous" });
       else {
-        setLoadError(e instanceof ApiError ? e.message : "Terjadi kesalahan.");
+        const msg = e instanceof ApiError ? e.message : "Terjadi kesalahan.";
+        setLoadError(
+          e instanceof ApiError && e.status === 0
+            ? "Tidak dapat terhubung ke server. Silakan coba lagi."
+            : msg,
+        );
         setState({ status: "anonymous" });
       }
     }
@@ -47,6 +54,12 @@ export function App() {
     }
     void refresh();
   }, [refresh]);
+
+  // Cadangan: kalau refresh sempat gagal tapi status belum ke anonymous, pastikan
+  // tidak stuck di "Memuat..." — pindahkan ke anonymous + pesan error.
+  useEffect(() => {
+    if (state.status === "loading" && loadError) setState({ status: "anonymous" });
+  }, [state.status, loadError]);
 
   const logout = useCallback(async () => {
     await api.logout().catch(() => undefined);
