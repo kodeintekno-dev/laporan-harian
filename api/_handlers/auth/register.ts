@@ -10,6 +10,10 @@ const DISPLAY_NAME_MAX = 60;
 
 const schema = z.object({ fullName: fullNameSchema, phone: phoneSchema });
 
+export async function DELETE(): Promise<Response> {
+  return json({ ok: true }, { headers: { "Set-Cookie": clearedRegistrationCookie() } });
+}
+
 /**
  * Pendaftaran Staff setelah login Google pertama. Identitas (sub, email, name) hanya diambil dari cookie
  * pendaftaran bertanda tangan yang diterbitkan callback Google, tidak pernah dari body permintaan.

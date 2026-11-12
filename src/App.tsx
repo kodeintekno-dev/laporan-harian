@@ -80,6 +80,7 @@ export function App() {
     if (registering) {
       return (
         <RegisterPage
+          onCancel={() => setRegistering(false)}
           onDone={() => {
             setRegistering(false);
             void refresh();

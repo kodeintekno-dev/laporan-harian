@@ -6,11 +6,25 @@ import { api, ApiError } from "../api";
  * pendaftaran bertanda tangan, jadi form ini hanya menanyakan nama lengkap dan nomor telepon.
  * Hasilnya akun berstatus 'menunggu' sampai Admin menyetujui.
  */
-export function RegisterPage({ onDone }: { onDone: () => void }) {
+export function RegisterPage({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  async function cancel() {
+    setCancelling(true);
+    setError(null);
+    try {
+      await api.cancelRegistration();
+      onCancel();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Pendaftaran gagal dibatalkan.");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -57,9 +71,12 @@ export function RegisterPage({ onDone }: { onDone: () => void }) {
             {error}
           </p>
         )}
-        <div>
-          <button type="submit" disabled={busy}>
+        <div className="row">
+          <button type="submit" disabled={busy || cancelling}>
             {busy ? "Mengirim…" : "Daftar"}
+          </button>
+          <button type="button" className="secondary" disabled={busy || cancelling} onClick={cancel}>
+            {cancelling ? "Membatalkan…" : "Batal"}
           </button>
         </div>
       </form>

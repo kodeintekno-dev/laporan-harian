@@ -212,6 +212,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ fullName, phone }),
     }),
+  cancelRegistration: () => request<{ ok: true }>("/api/auth/register", { method: "DELETE" }),
   logout: () => request<{ ok: true }>("/api/auth/logout", { method: "POST" }),
   changePassword: (currentPassword: string | null, newPassword: string) =>
     request<{ ok: true }>("/api/auth/change-password", {
