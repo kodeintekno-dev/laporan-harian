@@ -1,28 +1,17 @@
 :root {
-  color-scheme: light dark;
-  --bg: #eaf3f0;
+  color-scheme: light;
+  --bg: #f3f7ff;
   --surface: #ffffff;
-  --text: #122c28;
-  --muted: #48645e;
-  --border: #c1d4ce;
-  --accent: #076659;
+  --text: #162541;
+  --muted: #4b5c76;
+  --border: #c8d6ed;
+  --accent: #1b52c8;
   --accent-text: #ffffff;
+  --highlight: #ff9d2d;
+  --highlight-bg: #fff7ec;
   --danger: #b3261e;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0c1b19;
-    --surface: #142825;
-    --text: #e8f5ef;
-    --muted: #aec8be;
-    --border: #3b5850;
-    --accent: #82dbc5;
-    --accent-text: #09251f;
-    --danger: #f2a09b;
-  }
 }
 
 * {
@@ -66,7 +55,7 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 1.35rem;
-  box-shadow: 0 12px 36px #081c1512;
+  box-shadow: 0 12px 36px #16254112;
   overflow-wrap: anywhere;
 }
 
@@ -198,7 +187,8 @@ textarea {
   margin: 0.75rem 0;
   padding: 0.75rem 1rem;
   border: 1px solid var(--border);
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid var(--highlight);
+  background: var(--highlight-bg);
   border-radius: 0.5rem;
 }
 
