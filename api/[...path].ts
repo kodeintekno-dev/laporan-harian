@@ -26,6 +26,7 @@ import * as health from "./_handlers/health.js";
 import * as reportsHistory from "./_handlers/reports/history.js";
 import * as reportsIndex from "./_handlers/reports/index.js";
 import * as reportsToday from "./_handlers/reports/today.js";
+import { json } from "./_lib/http.js";
 
 type Handler = (req: Request) => Promise<Response>;
 type Module = Partial<Record<"GET" | "POST" | "PUT" | "PATCH" | "DELETE", Handler>>;
@@ -57,11 +58,10 @@ const routes: Array<{ pattern: URLPattern; module: Module }> = [
 ];
 
 export default async function handler(request: Request): Promise<Response> {
-  const url = new URL(request.url);
   const method = request.method as keyof Module;
 
   for (const { pattern, module } of routes) {
-    if (pattern.test(url)) {
+    if (pattern.test(request.url)) {
       const fn = module[method];
       if (!fn) {
         return new Response(JSON.stringify({ error: "Method tidak diizinkan." }), {
@@ -69,12 +69,24 @@ export default async function handler(request: Request): Promise<Response> {
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
         });
       }
-      return fn(request);
+      // Boundary: pastikan setiap exception di dalam handler menghasilkan JSON 500,
+      // bukan crash/502 dari platform. Pesan detail disembunyikan di produksi.
+      try {
+        return await fn(request);
+      } catch (error) {
+        const message = process.env.VERCEL
+          ? "Terjadi kesalahan pada server."
+          : error instanceof Error
+            ? error.message
+            : String(error);
+        if (process.env.VERCEL) console.error("API error:", error);
+        return json(
+          { error: message },
+          { status: 500 },
+        );
+      }
     }
   }
 
-  return new Response(JSON.stringify({ error: "Tidak ditemukan." }), {
-    status: 404,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
+  return json({ error: "Tidak ditemukan." }, { status: 404 });
 }
