@@ -15,13 +15,13 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
 
   return (
     <main className="card">
-      <h1>Staff Kodein</h1>
+      <h1>Masuk ke akun Anda</h1>
       <p className="muted">Masuk untuk mengirim laporan kerja harian.</p>
       <div className="login-options">
         <a href="/api/auth/google" className="button google-button">
           Masuk dengan Google
         </a>
-        <p className="muted center">atau</p>
+        <p className="divider">atau</p>
         <button type="button" className="secondary" onClick={() => setMode("staff")}>
           Masuk dengan nomor telepon
         </button>

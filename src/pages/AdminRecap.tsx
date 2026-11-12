@@ -106,10 +106,12 @@ export function AdminRecap({ onLogout }: { onLogout: () => void }) {
       {recap && (
         <>
           <p className="muted">{formatDate(recap.date)}</p>
-          <p className="summary">
-            Terkirim {recap.summary.terkirim} · Diisi Admin {recap.summary.diisiAdmin} · Tidak Hadir{" "}
-            {recap.summary.tidakHadir} · Belum Mengirim {recap.summary.belumMengirim}
-          </p>
+          <dl className="summary">
+            <div><dt>Terkirim</dt><dd>{recap.summary.terkirim}</dd></div>
+            <div><dt>Diisi Admin</dt><dd>{recap.summary.diisiAdmin}</dd></div>
+            <div><dt>Tidak Hadir</dt><dd>{recap.summary.tidakHadir}</dd></div>
+            <div><dt>Belum Mengirim</dt><dd>{recap.summary.belumMengirim}</dd></div>
+          </dl>
           {recap.isWeekend && (
             <p className="muted">Akhir pekan: hanya Staff yang melapor atau ditandai Tidak Hadir yang tampil.</p>
           )}
