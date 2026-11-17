@@ -50,7 +50,8 @@ function StaffLoginForm({ onLoggedIn, onBack }: { onLoggedIn: (me: Me) => void; 
     setBusy(true);
     setError(null);
     try {
-      onLoggedIn(await api.loginStaff(phone.trim(), password));
+      await api.loginStaff(phone.trim(), password);
+      onLoggedIn(await api.me());
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Terjadi kesalahan.");
       setPassword("");

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { dateSchema, logIfChanged, reasonSchema, staffIdSchema } from "../../../_lib/admin.js";
-import { authenticateAdmin } from "../../../_lib/auth.js";
+import { authenticateAdmin, canManageStaffSql, denyRestrictedTarget } from "../../../_lib/auth.js";
 import { getDb } from "../../../_lib/db.js";
 import { fail, json, readJson } from "../../../_lib/http.js";
 import { toReportView } from "../../../_lib/report.js";
@@ -19,6 +19,9 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.ok) return parsed.response;
   const { staffId, date, reason } = parsed.data;
 
+  const denied = await denyRestrictedTarget(admin.staffId, staffId);
+  if (denied) return denied;
+  const permission = canManageStaffSql(admin.staffId, staffId);
   const db = getDb();
   const existing = await db.execute({
     sql: `SELECT report_date, tasks_json, note, submitted_at, source, status
@@ -32,12 +35,13 @@ export async function POST(request: Request): Promise<Response> {
     [
       {
         sql: `UPDATE daily_report SET status = 'dibatalkan'
-              WHERE staff_id = ? AND report_date = ? AND status = 'aktif'`,
+              WHERE ${permission} AND staff_id = ? AND report_date = ? AND status = 'aktif'`,
         args: [staffId, date],
       },
       logIfChanged({
         type: "laporan",
         staffId,
+        actorStaffId: admin.staffId,
         date,
         action: "batalkan",
         reason,

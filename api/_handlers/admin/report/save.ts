@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { dateSchema, logIfChanged, reasonSchema, staffIdSchema } from "../../../_lib/admin.js";
-import { authenticateAdmin } from "../../../_lib/auth.js";
+import { authenticateAdmin, canManageStaffSql, denyRestrictedTarget } from "../../../_lib/auth.js";
 import { getDb } from "../../../_lib/db.js";
 import { fail, json, readJson } from "../../../_lib/http.js";
 import { reportInputSchema, toReportView } from "../../../_lib/report.js";
@@ -26,6 +26,9 @@ export async function POST(request: Request): Promise<Response> {
   const now = Date.now();
   if (date > dateWib(now)) return fail(400, "Tanggal laporan tidak boleh di masa depan.");
 
+  const denied = await denyRestrictedTarget(admin.staffId, staffId);
+  if (denied) return denied;
+  const permission = canManageStaffSql(admin.staffId, staffId);
   const db = getDb();
   const staff = await db.execute({ sql: "SELECT 1 FROM staff WHERE id = ?", args: [staffId] });
   if (staff.rows.length === 0) return fail(404, "Staff tidak ditemukan.");
@@ -43,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
       {
         sql: `INSERT INTO daily_report (staff_id, report_date, tasks_json, note, submitted_at, source, status)
               SELECT ?, ?, ?, ?, ?, 'admin', 'aktif'
-              WHERE NOT EXISTS (SELECT 1 FROM absence WHERE staff_id = ? AND absence_date = ?)
+              WHERE ${permission} AND NOT EXISTS (SELECT 1 FROM absence WHERE staff_id = ? AND absence_date = ?)
               ON CONFLICT (staff_id, report_date) DO UPDATE SET
                 tasks_json = excluded.tasks_json,
                 note = excluded.note,
@@ -55,6 +58,7 @@ export async function POST(request: Request): Promise<Response> {
       logIfChanged({
         type: "laporan",
         staffId,
+        actorStaffId: admin.staffId,
         date,
         action: before ? "ubah" : "buat",
         reason,

@@ -16,6 +16,7 @@ type RecapRow = {
   absence: { category: string; note: string | null } | null;
   /** Ada laporan Dibatalkan pada tanggal ini: Staff tidak bisa mengirim ulang. */
   cancelled: boolean;
+  canCorrect: boolean;
 };
 
 /**
@@ -35,7 +36,14 @@ export async function GET(request: Request): Promise<Response> {
 
   const db = getDb();
   const [staffRes, reportRes, absenceRes] = await Promise.all([
-    db.execute("SELECT id, email, full_name, display_name, status FROM staff ORDER BY full_name COLLATE NOCASE, id"),
+    db.execute({
+      sql: `SELECT id, email, full_name, display_name, status, is_admin,
+                   COALESCE((SELECT exempt FROM reporting_policy
+                             WHERE staff_id = staff.id AND effective_date <= ?
+                             ORDER BY effective_date DESC LIMIT 1), 0) AS reporting_exempt
+            FROM staff ORDER BY full_name COLLATE NOCASE, id`,
+      args: [date],
+    }),
     db.execute({
       sql: `SELECT staff_id, report_date, tasks_json, note, submitted_at, source, status
             FROM daily_report WHERE report_date = ?`,
@@ -60,7 +68,7 @@ export async function GET(request: Request): Promise<Response> {
     let status: RecapStatus;
     if (absenceRow) status = "tidak_hadir";
     else if (activeReport) status = String(activeReport.source) === "admin" ? "diisi_admin" : "terkirim";
-    else if (isActive && !weekend) status = "belum_mengirim";
+    else if (isActive && !weekend && Number(s.reporting_exempt) === 0) status = "belum_mengirim";
     else continue;
 
     rows.push({
@@ -70,6 +78,7 @@ export async function GET(request: Request): Promise<Response> {
       status,
       report: activeReport ? toReportView(activeReport) : null,
       absence: absenceRow ? { category: String(absenceRow.category), note: absenceRow.note == null ? null : String(absenceRow.note) } : null,
+      canCorrect: admin.staffId === null || (admin.staffId !== staffId && Number(s.is_admin) === 0),
       cancelled: !!reportRow && !activeReport,
     });
   }

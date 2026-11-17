@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.TURSO_DATABASE_URL = ":memory:";
 process.env.SESSION_SECRET = "x".repeat(48);
@@ -12,6 +12,10 @@ const { getDb } = await import("../_lib/db.js");
 const { signSession, sessionCookie, adminFingerprint } = await import("../_lib/session.js");
 const { dateWib, addDays } = await import("../_lib/time.js");
 const { csvCell } = await import("../_lib/csv.js");
+const role = await import("../_handlers/admin/staff/role.js");
+const staffAccounts = await import("../_handlers/admin/staff/index.js");
+const staffUpdate = await import("../_handlers/admin/staff/update.js");
+const me = await import("../_handlers/auth/me.js");
 const recap = await import("../_handlers/admin/recap.js");
 const mark = await import("../_handlers/admin/absence/mark.js");
 const revoke = await import("../_handlers/admin/absence/revoke.js");
@@ -90,6 +94,8 @@ beforeAll(async () => {
   await getDb().executeMultiple(sql2);
   const sql3 = await readFile(join(import.meta.dirname, "..", "..", "db", "migrations", "0003_jabatan.sql"), "utf8");
   await getDb().executeMultiple(sql3);
+  const roles = await readFile(join(import.meta.dirname, "..", "..", "db", "migrations", "0005_delegated_admin.sql"), "utf8");
+  await getDb().executeMultiple(roles);
 });
 
 beforeEach(async () => {
@@ -97,6 +103,7 @@ beforeEach(async () => {
   await db.execute("DELETE FROM correction_log");
   await db.execute("DELETE FROM daily_report");
   await db.execute("DELETE FROM absence");
+  await db.execute("DELETE FROM reporting_policy");
   await db.execute("DELETE FROM staff");
 });
 
@@ -115,6 +122,90 @@ describe("akses", () => {
     for (const [name, call] of cases) {
       expect((await call()).status, `${name} tanpa login`).toBe(401);
       expect((await call(cookie)).status, `${name} sebagai Staff`).toBe(403);
+    }
+  });
+});
+
+describe("delegasi Admin", () => {
+  it("menerapkan promosi dan demosi pada sesi yang sudah aktif serta melindungi akun Admin", async () => {
+    const superadmin = await adminCookie();
+    const first = await seedStaff("admin-satu@test.id");
+    const second = await seedStaff("admin-dua@test.id");
+    const employee = await seedStaff("staf@test.id");
+    const getRecap = (cookie: string) => recap.GET(get(`https://staff.test/api/admin/recap?date=${FRIDAY}`, cookie));
+    const change = (id: number, isAdmin: boolean, cookie: string) =>
+      role.POST(post({ id, isAdmin, monitoringOnly: false }, cookie));
+
+    expect((await getRecap(first.cookie)).status).toBe(403);
+    expect((await change(first.id, true, superadmin)).status).toBe(200);
+    expect((await getRecap(first.cookie)).status).toBe(200);
+    expect((await change(second.id, true, first.cookie)).status).toBe(403);
+    expect((await change(second.id, true, superadmin)).status).toBe(200);
+    expect((await staffUpdate.POST(post({ id: second.id, status: "nonaktif" }, first.cookie))).status).toBe(403);
+    expect((await staffUpdate.POST(post({ id: employee.id, fullName: "Nama Baru" }, first.cookie))).status).toBe(200);
+
+    const pending = await seedStaff("pendaftar@test.id");
+    await getDb().execute({ sql: "UPDATE staff SET status = 'menunggu' WHERE id = ?", args: [pending.id] });
+    expect((await staffAccounts.POST(post({ id: pending.id, action: "setujui" }, first.cookie))).status).toBe(200);
+
+    const correct = (staffId: number, cookie: string) =>
+      save.POST(post({ staffId, date: FRIDAY, reason: "Koreksi", tasks: ["Tugas"] }, cookie));
+    expect((await correct(first.id, first.cookie)).status).toBe(403);
+    expect((await correct(second.id, first.cookie)).status).toBe(403);
+    expect((await correct(employee.id, first.cookie)).status).toBe(201);
+    expect((await correct(second.id, superadmin)).status).toBe(201);
+    const audit = await getDb().execute("SELECT actor_staff_id FROM correction_log ORDER BY id");
+    expect(audit.rows.map((row) => row.actor_staff_id)).toEqual([first.id, null]);
+
+    expect((await change(first.id, false, superadmin)).status).toBe(200);
+    expect((await getRecap(first.cookie)).status).toBe(403);
+  });
+
+  it("membuat akun aktif dengan password awal yang harus diganti sebelum promosi", async () => {
+    const superadmin = await adminCookie();
+    const response = await staffAccounts.PUT(new Request("https://staff.test/api/admin/staff", {
+      method: "PUT",
+      headers: { "content-type": "application/json", cookie: superadmin },
+      body: JSON.stringify({ fullName: "Staff Baru", phone: "081234567890", password: "password-awal" }),
+    }));
+    expect(response.status).toBe(201);
+    const { staff } = await response.json();
+    expect(staff).toMatchObject({ status: "aktif", isAdmin: false, hasBackupPassword: true });
+    expect((await role.POST(post({ id: staff.id, isAdmin: true, monitoringOnly: false }, superadmin))).status).toBe(409);
+  });
+
+  it("memulai dan mengakhiri pengecualian pada pergantian tanggal WIB", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-11-16T16:59:59Z"));
+      let superadmin = await adminCookie();
+      const account = await seedStaff("monitor@test.id");
+      const change = (isAdmin: boolean, monitoringOnly: boolean) =>
+        role.POST(post({ id: account.id, isAdmin, monitoringOnly }, superadmin));
+      const identity = async () => (await me.GET(get("https://staff.test/api/auth/me", account.cookie))).json();
+      const getRecap = async (date: string) =>
+        (await recap.GET(get(`https://staff.test/api/admin/recap?date=${date}`, superadmin))).json();
+      const promoted = await change(true, true);
+      expect(await promoted.json()).toMatchObject({ effectiveDate: "2026-11-17" });
+      expect(await identity()).toMatchObject({ isAdmin: true, reportingExempt: false });
+      expect((await submit.POST(post({ tasks: ["Laporan sebelum pengecualian"] }, account.cookie))).status).toBe(201);
+
+      vi.setSystemTime(new Date("2026-11-16T17:00:00Z"));
+      expect(await identity()).toMatchObject({ isAdmin: true, reportingExempt: true });
+      expect((await submit.POST(post({ tasks: ["Laporan saat dikecualikan"] }, account.cookie))).status).toBe(403);
+      expect((await getRecap("2026-11-16")).rows).toEqual([expect.objectContaining({ staffId: account.id, status: "terkirim" })]);
+      expect((await getRecap("2026-11-17")).rows).toEqual([]);
+      expect((await change(false, false)).status).toBe(200);
+      expect(await identity()).toMatchObject({ isAdmin: false, reportingExempt: true });
+
+      vi.setSystemTime(new Date("2026-11-17T17:00:00Z"));
+      superadmin = await adminCookie();
+      account.cookie = sessionCookie(await signSession({ role: "staff", staffId: account.id, ep: 0 })).split(";")[0];
+      expect(await identity()).toMatchObject({ isAdmin: false, reportingExempt: false });
+      expect((await getRecap("2026-11-17")).rows).toEqual([]);
+      expect((await getRecap("2026-11-18")).rows).toEqual([expect.objectContaining({ staffId: account.id, status: "belum_mengirim" })]);
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

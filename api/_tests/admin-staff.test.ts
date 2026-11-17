@@ -75,6 +75,8 @@ beforeAll(async () => {
   await getDb().executeMultiple(sql2);
   const sql3 = await readFile(join(import.meta.dirname, "..", "..", "db", "migrations", "0003_jabatan.sql"), "utf8");
   await getDb().executeMultiple(sql3);
+  const roles = await readFile(join(import.meta.dirname, "..", "..", "db", "migrations", "0005_delegated_admin.sql"), "utf8");
+  await getDb().executeMultiple(roles);
 });
 
 beforeEach(async () => {

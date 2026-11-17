@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authenticateAdmin } from "../../../_lib/auth.js";
+import { authenticateAdmin, canManageStaffSql, denyRestrictedTarget } from "../../../_lib/auth.js";
 import { getDb } from "../../../_lib/db.js";
 import { fail, json, readJson } from "../../../_lib/http.js";
 import { fetchJabatan, JABATAN_LIST, MAX_JABATAN, setJabatan, STAFF_COLUMNS, toStaffView } from "../../../_lib/staff.js";
@@ -28,12 +28,15 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.ok) return parsed.response;
   const { id, jabatan } = parsed.data;
 
+  const denied = await denyRestrictedTarget(admin.staffId, id);
+  if (denied) return denied;
+  const permission = canManageStaffSql(admin.staffId, id);
   const db = getDb();
   // Pastikan Staff ada
   const staffRow = await db.execute({ sql: `SELECT ${STAFF_COLUMNS} FROM staff WHERE id = ?`, args: [id] });
   if (staffRow.rows.length === 0) return fail(404, "Staff tidak ditemukan.");
 
-  const err = await setJabatan(db, id, jabatan);
+  const err = await setJabatan(db, id, jabatan, permission);
   if (err) return fail(400, err.error);
 
   const jabatanMap = await fetchJabatan(db, [id]);

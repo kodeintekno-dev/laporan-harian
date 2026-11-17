@@ -1,3 +1,4 @@
+import { dateWib } from "./time.js";
 import { getDb } from "./db.js";
 import { fail } from "./http.js";
 import { adminFingerprint, readSessionToken, verifySession } from "./session.js";
@@ -13,6 +14,8 @@ export type StaffInfo = {
   identifier: string;
   status: StaffStatus;
   hasBackupPassword: boolean;
+  isAdmin: boolean;
+  reportingExempt: boolean;
 };
 
 export type AuthContext =
@@ -44,9 +47,12 @@ export async function authenticate(
   }
 
   const result = await getDb().execute({
-    sql: `SELECT id, email, full_name, display_name, status, session_epoch, password_hash
+    sql: `SELECT id, email, full_name, display_name, status, session_epoch, password_hash, is_admin,
+                 COALESCE((SELECT exempt FROM reporting_policy
+                           WHERE staff_id = staff.id AND effective_date <= ?
+                           ORDER BY effective_date DESC LIMIT 1), 0) AS reporting_exempt
           FROM staff WHERE id = ?`,
-    args: [session.staffId],
+    args: [dateWib(), session.staffId],
   });
   const row = result.rows[0];
   // Sesi dicabut jika epoch berubah atau akun dinonaktifkan.
@@ -64,6 +70,8 @@ export async function authenticate(
     identifier: displayName ?? email,
     status: String(row.status) as StaffStatus,
     hasBackupPassword: row.password_hash != null,
+    isAdmin: Number(row.is_admin) === 1 && row.status === "aktif",
+    reportingExempt: Number(row.reporting_exempt) === 1,
   };
   // Pendaftar (menunggu) dan yang ditolak hanya boleh melihat statusnya sendiri.
   if (staff.status !== "aktif" && !options.allowPending) {
@@ -73,9 +81,25 @@ export async function authenticate(
 }
 
 /** Untuk endpoint khusus Admin. Staff yang login mendapat 403. */
-export async function authenticateAdmin(request: Request): Promise<{ username: string } | Response> {
+export async function authenticateAdmin(request: Request): Promise<{ staffId: number | null } | Response> {
   const auth = await authenticate(request);
   if (auth instanceof Response) return auth;
-  if (auth.role !== "admin") return fail(403, "Hanya untuk Admin.");
-  return { username: auth.username };
+  if (auth.role === "admin") return { staffId: null };
+  if (!auth.staff.isAdmin) return fail(403, "Hanya untuk Admin.");
+  return { staffId: auth.staff.id };
+}
+
+/** SQL predicate evaluated at write time. Both IDs come from validated integer inputs. */
+export function canManageStaffSql(actorId: number | null, targetId?: number): string {
+  if (actorId === null) return "1";
+  const activeAdmin = `EXISTS (SELECT 1 FROM staff WHERE id = ${actorId} AND is_admin = 1 AND status = 'aktif')`;
+  if (targetId === undefined) return activeAdmin;
+  return `${activeAdmin} AND EXISTS (SELECT 1 FROM staff WHERE id = ${targetId} AND is_admin = 0 AND id <> ${actorId})`;
+}
+
+export async function denyRestrictedTarget(actorId: number | null, targetId: number): Promise<Response | null> {
+  if (actorId === null) return null;
+  const result = await getDb().execute({ sql: `SELECT ${canManageStaffSql(actorId, targetId)} AS allowed` });
+  return Number(result.rows[0].allowed) === 1 ? null : fail(403, "Hanya Superadmin yang dapat mengelola akun atau laporan Admin.");
+
 }

@@ -13,6 +13,8 @@ export async function POST(request: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
   if (auth.role !== "staff") return fail(403, "Hanya Staff yang dapat mengirim Laporan Harian.");
 
+  if (auth.staff.reportingExempt) return fail(403, "Hari ini Anda bebas dari kewajiban laporan.");
+
   const parsed = await readJson(request, reportInputSchema);
   if (!parsed.ok) return parsed.response;
   const { tasks, note } = parsed.data;
@@ -27,8 +29,10 @@ export async function POST(request: Request): Promise<Response> {
     const result = await db.execute({
       sql: `INSERT INTO daily_report (staff_id, report_date, tasks_json, note, submitted_at, source, status)
             SELECT ?, ?, ?, ?, ?, 'staff', 'aktif'
-            WHERE NOT EXISTS (SELECT 1 FROM absence WHERE staff_id = ? AND absence_date = ?)`,
-      args: [staffId, date, JSON.stringify(tasks), note, now, staffId, date],
+            WHERE NOT EXISTS (SELECT 1 FROM absence WHERE staff_id = ? AND absence_date = ?)
+              AND COALESCE((SELECT exempt FROM reporting_policy WHERE staff_id = ? AND effective_date <= ?
+                            ORDER BY effective_date DESC LIMIT 1), 0) = 0`,
+      args: [staffId, date, JSON.stringify(tasks), note, now, staffId, date, staffId, date],
     });
     if (result.rowsAffected === 0) {
       return fail(409, "Anda ditandai Tidak Hadir hari ini, jadi tidak perlu mengirim laporan.");

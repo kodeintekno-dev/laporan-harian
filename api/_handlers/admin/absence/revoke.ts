@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { dateSchema, logIfChanged, reasonSchema, staffIdSchema } from "../../../_lib/admin.js";
-import { authenticateAdmin } from "../../../_lib/auth.js";
+import { authenticateAdmin, canManageStaffSql, denyRestrictedTarget } from "../../../_lib/auth.js";
 import { getDb } from "../../../_lib/db.js";
 import { fail, json, readJson } from "../../../_lib/http.js";
 
@@ -15,6 +15,9 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.ok) return parsed.response;
   const { staffId, date, reason } = parsed.data;
 
+  const denied = await denyRestrictedTarget(admin.staffId, staffId);
+  if (denied) return denied;
+  const permission = canManageStaffSql(admin.staffId, staffId);
   const db = getDb();
   const existing = await db.execute({
     sql: "SELECT category, note FROM absence WHERE staff_id = ? AND absence_date = ?",
@@ -26,8 +29,8 @@ export async function POST(request: Request): Promise<Response> {
   const before = { category: String(row.category), note: row.note == null ? null : String(row.note) };
   const [result] = await db.batch(
     [
-      { sql: "DELETE FROM absence WHERE staff_id = ? AND absence_date = ?", args: [staffId, date] },
-      logIfChanged({ type: "tidak_hadir", staffId, date, action: "cabut", reason, before, after: null, now: Date.now() }),
+      { sql: `DELETE FROM absence WHERE ${permission} AND staff_id = ? AND absence_date = ?`, args: [staffId, date] },
+      logIfChanged({ type: "tidak_hadir", staffId, actorStaffId: admin.staffId, date, action: "cabut", reason, before, after: null, now: Date.now() }),
     ],
     "write",
   );

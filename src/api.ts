@@ -8,6 +8,8 @@ export type Me =
       email: string;
       status: "menunggu" | "aktif" | "ditolak" | "nonaktif";
       hasBackupPassword: boolean;
+      isAdmin: boolean;
+      reportingExempt: boolean;
     };
 
 export class ApiError extends Error {
@@ -45,6 +47,7 @@ export type Report = {
 };
 
 export type Today = {
+  reportingExempt: boolean;
   date: string;
   isWeekend: boolean;
   report: Report | null;
@@ -61,6 +64,7 @@ export const ABSENCE_CATEGORIES = ["Sakit", "Izin", "Cuti", "Tanpa Keterangan"] 
 export type RecapStatus = "terkirim" | "diisi_admin" | "tidak_hadir" | "belum_mengirim";
 
 export type RecapRow = {
+  canCorrect: boolean;
   staffId: number;
   identifier: string;
   fullName: string;
@@ -93,7 +97,7 @@ export const JABATAN_LIST = [
   "Kepala Sekolah",
   "Wakil Kepala Sekolah",
   "Admin Keuangan",
-  "Staf",
+  "Sekben Umum",
   "Kabid Diknas",
   "Kabid IT",
   "Kabid Kesiswaan",
@@ -109,6 +113,8 @@ export const JABATAN_LIST = [
 export type Jabatan = (typeof JABATAN_LIST)[number];
 
 export type StaffRow = {
+  isAdmin: boolean;
+  monitoringOnly: boolean;
   id: number;
   email: string;
   fullName: string;
@@ -148,6 +154,21 @@ async function downloadExport(from: string, to: string): Promise<void> {
 }
 
 export const api = {
+  staffSetRole: (id: number, isAdmin: boolean, monitoringOnly: boolean) =>
+    request<{ effectiveDate: string }>("/api/admin/staff/role", {
+      method: "POST",
+      body: JSON.stringify({ id, isAdmin, monitoringOnly }),
+    }),
+  staffCreate: (fullName: string, phone: string, password: string) =>
+    request<{ staff: StaffRow }>("/api/admin/staff", {
+      method: "PUT",
+      body: JSON.stringify({ fullName, phone, password }),
+    }),
+  staffUnlinkGoogle: (id: number) =>
+    request<{ staff: StaffRow }>("/api/admin/staff/unlink-google", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    }),
   staffList: () => request<{ items: StaffRow[] }>("/api/admin/staff"),
   staffDecide: (id: number, action: "setujui" | "tolak") =>
     request<{ staff: StaffRow }>("/api/admin/staff", {

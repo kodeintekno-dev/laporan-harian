@@ -5,7 +5,7 @@ export const JABATAN_LIST = [
   "Kepala Sekolah",
   "Wakil Kepala Sekolah",
   "Admin Keuangan",
-  "Staf",
+  "Sekben Umum",
   "Kabid Diknas",
   "Kabid IT",
   "Kabid Kesiswaan",
@@ -31,6 +31,8 @@ export type StaffView = {
   phone: string;
   status: "menunggu" | "aktif" | "ditolak" | "nonaktif";
   jabatan: Jabatan[];
+  isAdmin: boolean;
+  monitoringOnly: boolean;
   hasGoogleLinked: boolean;
   hasBackupPassword: boolean;
   createdAt: number;
@@ -38,7 +40,7 @@ export type StaffView = {
 };
 
 export const STAFF_COLUMNS =
-  "id, email, full_name, display_name, phone, status, google_sub, password_hash, created_at, decided_at";
+  "id, email, full_name, display_name, phone, status, google_sub, password_hash, created_at, decided_at, is_admin, monitoring_only";
 
 export function toStaffView(row: Row, jabatan: Jabatan[] = []): StaffView {
   const displayName =
@@ -52,6 +54,8 @@ export function toStaffView(row: Row, jabatan: Jabatan[] = []): StaffView {
     phone: String(row.phone),
     status: String(row.status) as StaffView["status"],
     jabatan,
+    isAdmin: Number(row.is_admin) === 1,
+    monitoringOnly: Number(row.monitoring_only) === 1,
     hasGoogleLinked: row.google_sub != null,
     hasBackupPassword: row.password_hash != null,
     createdAt: Number(row.created_at),
@@ -89,6 +93,7 @@ export async function setJabatan(
   db: import("@libsql/client").Client,
   staffId: number,
   jabatanNama: string[],
+  permission = "1",
 ): Promise<{ error: string } | null> {
   const valid = jabatanNama.filter((n): n is Jabatan => (JABATAN_LIST as readonly string[]).includes(n));
   if (valid.length !== jabatanNama.length) return { error: "Jabatan tidak valid." };
@@ -96,7 +101,7 @@ export async function setJabatan(
 
   // Ambil id jabatan
   if (valid.length === 0) {
-    await db.execute({ sql: "DELETE FROM staff_jabatan WHERE staff_id = ?", args: [staffId] });
+    await db.execute({ sql: `DELETE FROM staff_jabatan WHERE staff_id = ? AND ${permission}`, args: [staffId] });
     return null;
   }
   const placeholders = valid.map(() => "?").join(",");
@@ -107,9 +112,9 @@ export async function setJabatan(
 
   await db.batch(
     [
-      { sql: "DELETE FROM staff_jabatan WHERE staff_id = ?", args: [staffId] },
+      { sql: `DELETE FROM staff_jabatan WHERE staff_id = ? AND ${permission}`, args: [staffId] },
       ...valid.map((nama) => ({
-        sql: "INSERT INTO staff_jabatan (staff_id, jabatan_id) VALUES (?, ?)",
+        sql: `INSERT INTO staff_jabatan (staff_id, jabatan_id) SELECT ?, ? WHERE ${permission}`,
         args: [staffId, idMap.get(nama)!],
       })),
     ],

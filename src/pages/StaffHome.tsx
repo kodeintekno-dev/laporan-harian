@@ -9,10 +9,12 @@ export function StaffHome({
   me,
   onChangePassword,
   onLogout,
+  embedded = false,
 }: {
   me: Extract<Me, { role: "staff" }>;
   onChangePassword: () => void;
   onLogout: () => void;
+  embedded?: boolean;
 }) {
   const [today, setToday] = useState<Today | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,17 +34,18 @@ export function StaffHome({
   }, [onLogout]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (me.status === "aktif") void load();
+  }, [load, me.status, me.reportingExempt]);
 
   async function reload() {
     await load();
     setHistoryKey((k) => k + 1);
   }
 
+  const Container = embedded ? "section" : "main";
   return (
-    <main className="card wide">
-      <header className="top">
+    <Container className={embedded ? undefined : "card wide"}>
+      {!embedded && <header className="top">
         <div>
           <h1>Halo, {me.identifier}</h1>
           {today && <p className="muted">{formatDate(today.date)}</p>}
@@ -55,7 +58,7 @@ export function StaffHome({
             Keluar
           </button>
         </div>
-      </header>
+      </header>}
 
       {me.status === "menunggu" && (
         <p className="notice">
@@ -71,7 +74,7 @@ export function StaffHome({
           {error}
         </p>
       )}
-      {!today && !error && <p className="muted">Memuat…</p>}
+      {me.status === "aktif" && !today && !error && <p className="muted">Memuat…</p>}
 
       {today?.absence && (
         <p className="notice">Hari ini Anda ditandai Tidak Hadir ({today.absence.category}). Tidak perlu mengirim laporan.</p>
@@ -85,7 +88,8 @@ export function StaffHome({
           <ReportView report={today.report} />
         </section>
       )}
-      {today && !today.report && !today.absence && !today.cancelled && (
+      {today?.reportingExempt && <p className="notice">Hari ini Anda bebas dari kewajiban laporan.</p>}
+      {today && !today.reportingExempt && !today.report && !today.absence && !today.cancelled && (
         <section aria-labelledby="form-title">
           <h2 id="form-title">Laporan hari ini</h2>
           {today.isWeekend && (
@@ -95,7 +99,7 @@ export function StaffHome({
         </section>
       )}
 
-      <HistoryList key={historyKey} />
-    </main>
+      {me.status === "aktif" && <HistoryList key={historyKey} />}
+    </Container>
   );
 }

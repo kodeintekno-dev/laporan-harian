@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authenticateAdmin } from "../../../_lib/auth.js";
+import { authenticateAdmin, canManageStaffSql, denyRestrictedTarget } from "../../../_lib/auth.js";
 import { getDb } from "../../../_lib/db.js";
 import { fail, json, readJson } from "../../../_lib/http.js";
 import { STAFF_COLUMNS, toStaffView } from "../../../_lib/staff.js";
@@ -19,10 +19,13 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.ok) return parsed.response;
   const { id } = parsed.data;
 
+  const denied = await denyRestrictedTarget(admin.staffId, id);
+  if (denied) return denied;
+  const permission = canManageStaffSql(admin.staffId, id);
   const result = await getDb().execute({
     sql: `UPDATE staff
           SET google_sub = NULL, session_epoch = session_epoch + 1
-          WHERE id = ? AND status IN ('aktif', 'nonaktif') RETURNING ${STAFF_COLUMNS}`,
+          WHERE id = ? AND ${permission} AND status IN ('aktif', 'nonaktif') RETURNING ${STAFF_COLUMNS}`,
     args: [id],
   });
   if (result.rows.length === 0) return fail(404, "Staff tidak ditemukan.");

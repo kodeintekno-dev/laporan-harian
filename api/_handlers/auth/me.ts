@@ -17,5 +17,7 @@ export async function GET(request: Request): Promise<Response> {
     email: staff.email,
     status: staff.status,
     hasBackupPassword: staff.hasBackupPassword,
+    isAdmin: staff.isAdmin,
+    reportingExempt: staff.reportingExempt,
   });
 }

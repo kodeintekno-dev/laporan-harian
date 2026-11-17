@@ -68,6 +68,29 @@ export function App() {
     setState({ status: "anonymous" });
   }, []);
 
+  const authenticated = state.status === "ready";
+  useEffect(() => {
+    if (!authenticated) return;
+    let cancelled = false;
+    const updateAccess = async () => {
+      try {
+        const me = await api.me();
+        if (!cancelled) setState({ status: "ready", me });
+      } catch (error) {
+        if (!cancelled && error instanceof ApiError && error.status === 401) {
+          setState({ status: "anonymous" });
+        }
+      }
+    };
+    const timer = window.setInterval(() => void updateAccess(), 60_000);
+    window.addEventListener("focus", updateAccess);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", updateAccess);
+    };
+  }, [authenticated]);
+
   if (state.status === "loading") {
     return (
       <main className="card" aria-busy="true">
@@ -115,7 +138,7 @@ export function App() {
     );
   }
 
-  if (me.role === "staff") {
+  if (me.role === "staff" && !me.isAdmin) {
     return (
       <StaffHome
         me={me}
@@ -125,5 +148,10 @@ export function App() {
     );
   }
 
-  return <AdminHome onLogout={logout} />;
+  return <AdminHome
+    onLogout={logout}
+    superadmin={me.role === "admin"}
+    account={me.role === "staff" ? me : undefined}
+    onChangePassword={() => setChangingPassword(true)}
+  />;
 }

@@ -14,6 +14,7 @@ import * as adminStaff from "./_handlers/admin/staff/index.js";
 import * as adminStaffJabatan from "./_handlers/admin/staff/jabatan.js";
 import * as adminStaffResetPassword from "./_handlers/admin/staff/reset-password.js";
 import * as adminStaffUnlinkGoogle from "./_handlers/admin/staff/unlink-google.js";
+import * as adminStaffRole from "./_handlers/admin/staff/role.js";
 import * as adminStaffUpdate from "./_handlers/admin/staff/update.js";
 import * as authChangePassword from "./_handlers/auth/change-password.js";
 import * as authGoogleCallback from "./_handlers/auth/google/callback.js";
@@ -54,6 +55,7 @@ const routes: Array<{ pattern: URLPattern; module: Module }> = [
   { pattern: new URLPattern({ pathname: "/api/admin/staff/jabatan" }), module: adminStaffJabatan },
   { pattern: new URLPattern({ pathname: "/api/admin/staff/reset-password" }), module: adminStaffResetPassword },
   { pattern: new URLPattern({ pathname: "/api/admin/staff/unlink-google" }), module: adminStaffUnlinkGoogle },
+  { pattern: new URLPattern({ pathname: "/api/admin/staff/role" }), module: adminStaffRole },
   { pattern: new URLPattern({ pathname: "/api/admin/staff/update" }), module: adminStaffUpdate },
 ];
 

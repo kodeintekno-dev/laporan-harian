@@ -31,6 +31,7 @@ export async function GET(request: Request): Promise<Response> {
   const cancelled = row ? String(row.status) === "dibatalkan" : false;
   return json({
     date,
+    reportingExempt: auth.staff.reportingExempt,
     isWeekend: isWeekend(date),
     report: row && !cancelled ? toReportView(row) : null,
     cancelled,

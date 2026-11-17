@@ -59,7 +59,7 @@ export async function POST(request: Request): Promise<Response> {
   // Naikkan session_epoch supaya semua sesi lama dicabut, lalu terbitkan sesi baru.
   const newEpoch = Number(row?.session_epoch ?? 0) + 1;
   await db.execute({
-    sql: "UPDATE staff SET password_hash = ?, session_epoch = ? WHERE id = ?",
+    sql: "UPDATE staff SET password_hash = ?, initial_password = 0, session_epoch = ? WHERE id = ?",
     args: [await hashPassword(newPassword), newEpoch, auth.staff.id],
   });
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authenticateAdmin } from "../../../_lib/auth.js";
+import { authenticateAdmin, canManageStaffSql, denyRestrictedTarget } from "../../../_lib/auth.js";
 import { getDb } from "../../../_lib/db.js";
 import { fail, json, readJson } from "../../../_lib/http.js";
 import { displayNameSchema, fetchJabatan, fullNameSchema, STAFF_COLUMNS, toStaffView } from "../../../_lib/staff.js";
@@ -28,6 +28,9 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.ok) return parsed.response;
   const { id, fullName, displayName, status } = parsed.data;
 
+  const denied = await denyRestrictedTarget(admin.staffId, id);
+  if (denied) return denied;
+  const permission = canManageStaffSql(admin.staffId, id);
   const db = getDb();
   const result = await db.execute({
     sql: `UPDATE staff
@@ -35,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
               display_name = CASE WHEN ? THEN ? ELSE display_name END,
               status = COALESCE(?, status),
               session_epoch = CASE WHEN ? = 'nonaktif' THEN session_epoch + 1 ELSE session_epoch END
-          WHERE id = ? AND status IN ('aktif', 'nonaktif')
+          WHERE id = ? AND ${permission} AND status IN ('aktif', 'nonaktif')
           RETURNING ${STAFF_COLUMNS}`,
     args: [
       fullName ?? null,

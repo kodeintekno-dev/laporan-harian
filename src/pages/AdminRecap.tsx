@@ -217,7 +217,7 @@ function RecapItem({
       )}
 
       <div className="row tight full">
-        {row.status === "belum_mengirim" && (
+        {row.canCorrect && row.status === "belum_mengirim" && (
           <>
             <button type="button" className="secondary" onClick={() => onOpen("mark")}>
               Tandai Tidak Hadir
@@ -227,7 +227,7 @@ function RecapItem({
             </button>
           </>
         )}
-        {hasReport && (
+        {row.canCorrect && hasReport && (
           <>
             <button type="button" className="secondary" onClick={() => onOpen("save")}>
               Ubah laporan
@@ -237,7 +237,7 @@ function RecapItem({
             </button>
           </>
         )}
-        {row.status === "tidak_hadir" && (
+        {row.canCorrect && row.status === "tidak_hadir" && (
           <button type="button" className="secondary" onClick={() => onOpen("revoke")}>
             Cabut tanda Tidak Hadir
           </button>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, JABATAN_LIST, type StaffRow } from "../api";
+import { api, ApiError, JABATAN_LIST, type Me, type StaffRow } from "../api";
+import { formatDate } from "../format";
+import { StaffHome } from "./StaffHome";
 import { AdminRecap } from "./AdminRecap";
 
 const STATUS_LABEL: Record<StaffRow["status"], string> = {
@@ -9,11 +11,19 @@ const STATUS_LABEL: Record<StaffRow["status"], string> = {
   nonaktif: "Nonaktif",
 };
 
-export function AdminHome({ onLogout }: { onLogout: () => void }) {
+export function AdminHome({ onLogout, superadmin, account, onChangePassword }: {
+  onLogout: () => void;
+  superadmin: boolean;
+  account?: Extract<Me, { role: "staff" }>;
+  onChangePassword: () => void;
+}) {
   const [items, setItems] = useState<StaffRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [tab, setTab] = useState<"rekap" | "staff">("rekap");
+  const [tab, setTab] = useState<"rekap" | "staff" | "laporan">("rekap");
+  const [roleEditor, setRoleEditor] = useState<StaffRow | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [linkTarget, setLinkTarget] = useState<{ pendaftar: StaffRow; staff: StaffRow } | null>(null);
   const [jabatanEditId, setJabatanEditId] = useState<number | null>(null);
   const [jabatanDraft, setJabatanDraft] = useState<string[]>([]);
@@ -103,6 +113,8 @@ export function AdminHome({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  const showPersonalReport = account && !account.reportingExempt;
+  const currentTab = tab === "laporan" && !showPersonalReport ? "rekap" : tab;
   const pendaftarList = items?.filter((s) => s.status === "menunggu") ?? [];
   const activeList = items?.filter((s) => s.status === "aktif" || s.status === "nonaktif") ?? [];
   const rejectedList = items?.filter((s) => s.status === "ditolak") ?? [];
@@ -111,17 +123,23 @@ export function AdminHome({ onLogout }: { onLogout: () => void }) {
     <main className="card wide">
       <header className="top">
         <div>
-          <h1>Panel Admin</h1>
+          <h1>{superadmin ? "Panel Superadmin" : "Panel Admin"}</h1>
           <p className="muted">Rekap laporan dan kelola akun Staff.</p>
         </div>
+        {account && <button type="button" className="secondary" onClick={onChangePassword}>
+          {account.hasBackupPassword ? "Ubah Password Cadangan" : "Buat Password Cadangan"}
+        </button>}
         <button type="button" className="secondary" onClick={onLogout}>
           Keluar
         </button>
       </header>
 
       <div className="tabs" role="group" aria-label="Bagian panel">
-        <button type="button" aria-pressed={tab === "rekap"} onClick={() => setTab("rekap")}>
-          Rekap
+        {showPersonalReport && <button type="button" aria-pressed={currentTab === "laporan"} onClick={() => setTab("laporan")}>
+          Laporan Saya
+        </button>}
+        <button type="button" aria-pressed={currentTab === "rekap"} onClick={() => setTab("rekap")}>
+          Pantauan Tim
         </button>
         <button type="button" aria-pressed={tab === "staff"} onClick={() => setTab("staff")}>
           Staff
@@ -129,7 +147,10 @@ export function AdminHome({ onLogout }: { onLogout: () => void }) {
         </button>
       </div>
 
-      {tab === "rekap" && <AdminRecap onLogout={onLogout} />}
+      {currentTab === "rekap" && <AdminRecap onLogout={onLogout} />}
+      {currentTab === "laporan" && showPersonalReport && (
+        <StaffHome me={account} onChangePassword={onChangePassword} onLogout={onLogout} embedded />
+      )}
 
       {tab === "staff" && (
         <>
@@ -138,6 +159,53 @@ export function AdminHome({ onLogout }: { onLogout: () => void }) {
               {error}
             </p>
           )}
+
+          {message && <p className="notice" role="status">{message}</p>}
+          <button type="button" className="secondary" onClick={() => setCreating(!creating)}>
+            {creating ? "Tutup formulir akun" : "Buat akun Staff"}
+          </button>
+          {creating && <form onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            void run(0, async () => {
+              await api.staffCreate(String(data.get("name")), String(data.get("phone")), String(data.get("password")));
+              setCreating(false);
+              setMessage("Akun Staff aktif telah dibuat.");
+            });
+          }}>
+            <label>Nama lengkap <input name="name" required maxLength={100} /></label>
+            <label>Nomor telepon <input name="phone" type="tel" required /></label>
+            <p className="muted">Pemilik akun perlu mengganti password awal sebelum dapat dipromosikan.</p>
+            <label>Password awal <input name="password" type="password" autoComplete="new-password" minLength={8} required /></label>
+            <button type="submit" disabled={busyId !== null}>Buat akun</button>
+          </form>}
+          {superadmin && roleEditor && <form className="notice" onSubmit={(event) => {
+            event.preventDefault();
+            void run(roleEditor.id, async () => {
+              const { effectiveDate } = await api.staffSetRole(roleEditor.id, roleEditor.isAdmin, roleEditor.monitoringOnly);
+              setRoleEditor(null);
+              setMessage(`Peran diperbarui. Pengaturan laporan berlaku mulai ${formatDate(effectiveDate)} WIB.`);
+            });
+          }}>
+            <h2>Peran {roleEditor.fullName}</h2>
+            <label>
+              Peran
+              <select value={roleEditor.isAdmin ? "admin" : "staff"} onChange={(event) => {
+                const isAdmin = event.target.value === "admin";
+                setRoleEditor({ ...roleEditor, isAdmin, monitoringOnly: isAdmin && roleEditor.monitoringOnly });
+              }}>
+                <option value="staff">Staff</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            {roleEditor.isAdmin && <label className="jabatan-check-item">
+              <input type="checkbox" checked={roleEditor.monitoringOnly} onChange={(event) =>
+                setRoleEditor({ ...roleEditor, monitoringOnly: event.target.checked })} />
+              Monitoring only (bebas laporan mulai besok)
+            </label>}
+            <button type="submit" disabled={busyId !== null}>Simpan peran</button>
+            <button type="button" className="secondary" onClick={() => setRoleEditor(null)}>Batal</button>
+          </form>}
 
           {linkTarget && (
             <section className="notice" role="status">
@@ -264,6 +332,18 @@ export function AdminHome({ onLogout }: { onLogout: () => void }) {
                       )}
                     </div>
                     <div className="row tight">
+                      {superadmin && <button type="button" className="secondary" disabled={busyId === s.id}
+                        onClick={() => setRoleEditor(s)}>
+                        {s.isAdmin ? (s.monitoringOnly ? "Admin · Monitoring only" : "Admin · Ubah peran") : "Ubah peran"}
+                      </button>}
+                      {s.hasGoogleLinked && s.hasBackupPassword && <button type="button" className="secondary" disabled={busyId === s.id}
+                        onClick={() => {
+                          if (window.confirm(`Lepas tautan Google untuk ${s.fullName}?`)) {
+                            void run(s.id, async () => { await api.staffUnlinkGoogle(s.id); });
+                          }
+                        }}>
+                        Lepas tautan Google
+                      </button>}
                       <button type="button" className="secondary" disabled={busyId === s.id} onClick={() => rename(s)}>
                         Ubah nama
                       </button>

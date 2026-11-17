@@ -42,6 +42,7 @@ export function readQueryDate(url: URL, name: string): { ok: true; value: string
 export type LogEntry = {
   type: "laporan" | "tidak_hadir";
   staffId: number;
+  actorStaffId: number | null;
   date: string;
   action: string;
   reason: string;
@@ -56,8 +57,8 @@ export type LogEntry = {
  */
 export function logIfChanged(entry: LogEntry): InStatement {
   return {
-    sql: `INSERT INTO correction_log (target_type, staff_id, target_date, action, reason, before_json, after_json, created_at)
-          SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`,
+    sql: `INSERT INTO correction_log (target_type, staff_id, target_date, action, reason, before_json, after_json, created_at, actor_staff_id)
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`,
     args: [
       entry.type,
       entry.staffId,
@@ -67,6 +68,7 @@ export function logIfChanged(entry: LogEntry): InStatement {
       entry.before === null ? null : JSON.stringify(entry.before),
       entry.after === null ? null : JSON.stringify(entry.after),
       entry.now,
+      entry.actorStaffId,
     ],
   };
 }
