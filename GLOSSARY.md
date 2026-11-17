@@ -47,7 +47,7 @@ Kolom teks opsional di Laporan Harian di luar daftar Item Tugas.
 _Avoid_: Keterangan, komentar
 
 **Waktu Keluar**:
-Waktu Laporan Harian dikirim oleh Staff pada hari yang sama. Hanya ada untuk laporan yang Staff kirim sendiri.
+Waktu Laporan Harian dikirim oleh Staff. Hanya ada untuk laporan yang Staff kirim sendiri.
 _Avoid_: Jam pulang, waktu absen
 
 **Diisi Admin**:
@@ -55,7 +55,7 @@ Penanda untuk Laporan Harian yang dibuat Admin atas nama Staff, biasanya untuk t
 _Avoid_: Laporan susulan, laporan terlambat
 
 **Tanggal Laporan**:
-Tanggal kalender WIB yang dilaporkan oleh sebuah Laporan Harian. Pergantian tanggal terjadi pukul 00:00 WIB.
+Tanggal kalender WIB yang dilaporkan oleh sebuah Laporan Harian. Untuk Musyrif, tanggalnya mengikuti awal sif dan berganti pukul 12.00 WIB. Musyrif mengisi dan mengirim laporan pukul 07.15–11.59 WIB esok harinya. Staff lain mengisi dan mengirim pukul 15.45–23.59 WIB pada Tanggal Laporan, yang berganti pukul 00.00 WIB.
 _Avoid_: Hari laporan
 
 ## Kehadiran dan koreksi

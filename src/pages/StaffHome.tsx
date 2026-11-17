@@ -37,6 +37,13 @@ export function StaffHome({
     if (me.status === "aktif") void load();
   }, [load, me.status, me.reportingExempt]);
 
+  useEffect(() => {
+    if (!today || today.isOpen && !today.report && !today.absence && !today.cancelled && !today.reportingExempt) return;
+    const nextCheck = today.isOpen ? today.closesAt : today.opensAt;
+    const timer = setTimeout(() => void load(), nextCheck - today.serverTime);
+    return () => clearTimeout(timer);
+  }, [load, today]);
+
   async function reload() {
     await load();
     setHistoryKey((k) => k + 1);
@@ -91,11 +98,21 @@ export function StaffHome({
       {today?.reportingExempt && <p className="notice">Hari ini Anda bebas dari kewajiban laporan.</p>}
       {today && !today.reportingExempt && !today.report && !today.absence && !today.cancelled && (
         <section aria-labelledby="form-title">
-          <h2 id="form-title">Laporan hari ini</h2>
+          <h2 id="form-title">Laporan {formatDate(today.date)}</h2>
           {today.isWeekend && (
             <p className="notice">Hari ini akhir pekan. Mengirim laporan akan tercatat sebagai piket.</p>
           )}
-          <ReportForm onSubmitted={() => void reload()} onConflict={() => void reload()} />
+          {today.isOpen ? (
+            <ReportForm
+              key={today.date}
+              expectedDate={today.date}
+              remainingMs={today.closesAt - today.serverTime}
+              onSubmitted={() => void reload()}
+              onConflict={() => void reload()}
+            />
+          ) : (
+            <p className="notice">Pengisian laporan dibuka pukul {today.hours}.</p>
+          )}
         </section>
       )}
 

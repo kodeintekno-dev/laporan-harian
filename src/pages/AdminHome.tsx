@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, JABATAN_LIST, type Me, type StaffRow } from "../api";
+import { MUSYRIF } from "../../shared/jabatan";
 import { formatDate } from "../format";
 import { StaffHome } from "./StaffHome";
 import { AdminRecap } from "./AdminRecap";
@@ -313,7 +314,10 @@ export function AdminHome({ onLogout, superadmin, account, onChangePassword }: {
                                 <input
                                   type="checkbox"
                                   checked={jabatanDraft.includes(nama)}
-                                  disabled={!jabatanDraft.includes(nama) && jabatanDraft.length >= 3}
+                                  disabled={!jabatanDraft.includes(nama) && (
+                                    jabatanDraft.length >= 3 || jabatanDraft.includes(MUSYRIF) ||
+                                    (nama === MUSYRIF && jabatanDraft.length > 0)
+                                  )}
                                   onChange={() => toggleJabatan(nama)}
                                 />
                                 {nama}

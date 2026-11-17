@@ -2,27 +2,33 @@ import { authenticate } from "../../_lib/auth.js";
 import { getDb, isUniqueViolation } from "../../_lib/db.js";
 import { fail, json, readJson } from "../../_lib/http.js";
 import { reportInputSchema, type ReportView } from "../../_lib/report.js";
-import { dateWib } from "../../_lib/time.js";
+import { reportSchedule } from "../../_lib/report-schedule.js";
+import { z } from "zod";
+
+const submissionSchema = reportInputSchema.extend({
+  expectedDate: z.iso.date("Tanggal formulir tidak valid."),
+});
 
 /**
  * Staff mengirim Laporan Harian untuk hari ini (WIB). Waktu Keluar = waktu server saat ini.
- * Tanggal tidak pernah diterima dari klien. Laporan yang sudah terkirim tidak bisa diubah Staff.
+ * Tanggal formulir hanya dipakai untuk mendeteksi pengiriman dari periode lama.
  */
 export async function POST(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if (auth instanceof Response) return auth;
   if (auth.role !== "staff") return fail(403, "Hanya Staff yang dapat mengirim Laporan Harian.");
 
-  if (auth.staff.reportingExempt) return fail(403, "Hari ini Anda bebas dari kewajiban laporan.");
-
-  const parsed = await readJson(request, reportInputSchema);
+  const parsed = await readJson(request, submissionSchema);
   if (!parsed.ok) return parsed.response;
-  const { tasks, note } = parsed.data;
+  const { tasks, note, expectedDate } = parsed.data;
 
   const now = Date.now();
-  const date = dateWib(now);
   const db = getDb();
   const staffId = auth.staff.id;
+  const schedule = await reportSchedule(db, staffId, now);
+  const { date } = schedule;
+  if (expectedDate !== date) return fail(400, "Batas waktu pengiriman untuk tanggal pada formulir ini sudah lewat.");
+  if (!schedule.isOpen) return fail(403, `Pengiriman dibuka pukul ${schedule.hours}.`);
 
   try {
     // Satu pernyataan atomik: tidak menyisipkan jika Admin sudah menandai Tidak Hadir hari ini.
@@ -35,6 +41,14 @@ export async function POST(request: Request): Promise<Response> {
       args: [staffId, date, JSON.stringify(tasks), note, now, staffId, date, staffId, date],
     });
     if (result.rowsAffected === 0) {
+      const policy = await db.execute({
+        sql: `SELECT exempt FROM reporting_policy WHERE staff_id = ? AND effective_date <= ?
+              ORDER BY effective_date DESC LIMIT 1`,
+        args: [staffId, date],
+      });
+      if (Number(policy.rows[0]?.exempt) === 1) {
+        return fail(403, "Anda bebas dari kewajiban laporan untuk tanggal ini.");
+      }
       return fail(409, "Anda ditandai Tidak Hadir hari ini, jadi tidak perlu mengirim laporan.");
     }
   } catch (error) {

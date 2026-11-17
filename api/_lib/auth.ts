@@ -1,4 +1,3 @@
-import { dateWib } from "./time.js";
 import { getDb } from "./db.js";
 import { fail } from "./http.js";
 import { adminFingerprint, readSessionToken, verifySession } from "./session.js";
@@ -15,7 +14,6 @@ export type StaffInfo = {
   status: StaffStatus;
   hasBackupPassword: boolean;
   isAdmin: boolean;
-  reportingExempt: boolean;
 };
 
 export type AuthContext =
@@ -47,12 +45,9 @@ export async function authenticate(
   }
 
   const result = await getDb().execute({
-    sql: `SELECT id, email, full_name, display_name, status, session_epoch, password_hash, is_admin,
-                 COALESCE((SELECT exempt FROM reporting_policy
-                           WHERE staff_id = staff.id AND effective_date <= ?
-                           ORDER BY effective_date DESC LIMIT 1), 0) AS reporting_exempt
+    sql: `SELECT id, email, full_name, display_name, status, session_epoch, password_hash, is_admin
           FROM staff WHERE id = ?`,
-    args: [dateWib(), session.staffId],
+    args: [session.staffId],
   });
   const row = result.rows[0];
   // Sesi dicabut jika epoch berubah atau akun dinonaktifkan.
@@ -71,7 +66,6 @@ export async function authenticate(
     status: String(row.status) as StaffStatus,
     hasBackupPassword: row.password_hash != null,
     isAdmin: Number(row.is_admin) === 1 && row.status === "aktif",
-    reportingExempt: Number(row.reporting_exempt) === 1,
   };
   // Pendaftar (menunggu) dan yang ditolak hanya boleh melihat statusnya sendiri.
   if (staff.status !== "aktif" && !options.allowPending) {

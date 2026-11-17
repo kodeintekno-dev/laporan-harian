@@ -2,7 +2,8 @@ import { authenticate } from "../../_lib/auth.js";
 import { getDb } from "../../_lib/db.js";
 import { fail, json } from "../../_lib/http.js";
 import { toReportView } from "../../_lib/report.js";
-import { dateWib, isWeekend } from "../../_lib/time.js";
+import { reportSchedule } from "../../_lib/report-schedule.js";
+import { isWeekend } from "../../_lib/time.js";
 
 /** Status hari ini bagi Staff yang sedang login: sudah kirim, Tidak Hadir, dibatalkan, atau belum. */
 export async function GET(request: Request): Promise<Response> {
@@ -10,9 +11,11 @@ export async function GET(request: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
   if (auth.role !== "staff") return fail(403, "Hanya untuk Staff.");
 
-  const date = dateWib();
+  const now = Date.now();
   const db = getDb();
-  const [reportRes, absenceRes] = await db.batch(
+  const schedule = await reportSchedule(db, auth.staff.id, now);
+  const { date } = schedule;
+  const [reportRes, absenceRes, policyRes] = await db.batch(
     [
       {
         sql: `SELECT report_date, tasks_json, note, submitted_at, source, status
@@ -23,6 +26,11 @@ export async function GET(request: Request): Promise<Response> {
         sql: "SELECT category FROM absence WHERE staff_id = ? AND absence_date = ?",
         args: [auth.staff.id, date],
       },
+      {
+        sql: `SELECT exempt FROM reporting_policy WHERE staff_id = ? AND effective_date <= ?
+              ORDER BY effective_date DESC LIMIT 1`,
+        args: [auth.staff.id, date],
+      },
     ],
     "read",
   );
@@ -30,8 +38,9 @@ export async function GET(request: Request): Promise<Response> {
   const row = reportRes.rows[0];
   const cancelled = row ? String(row.status) === "dibatalkan" : false;
   return json({
-    date,
-    reportingExempt: auth.staff.reportingExempt,
+    ...schedule,
+    serverTime: now,
+    reportingExempt: Number(policyRes.rows[0]?.exempt) === 1,
     isWeekend: isWeekend(date),
     report: row && !cancelled ? toReportView(row) : null,
     cancelled,

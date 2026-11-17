@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.TURSO_DATABASE_URL = ":memory:";
 process.env.SESSION_SECRET = "x".repeat(48);
@@ -39,7 +39,7 @@ function post(body: unknown, cookie?: string): Request {
   return new Request("https://staff.test/api/reports", {
     method: "POST",
     headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ expectedDate: dateWib(), ...(body as object) }),
   });
 }
 
@@ -64,16 +64,57 @@ beforeAll(async () => {
   await getDb().executeMultiple(sql3);
   const roles = await readFile(join(import.meta.dirname, "..", "..", "db", "migrations", "0005_delegated_admin.sql"), "utf8");
   await getDb().executeMultiple(roles);
+  await getDb().executeMultiple(await readFile(join(import.meta.dirname, "../../db/migrations/0007_report_schedule.sql"), "utf8"));
 });
 
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(`${TODAY}T18:00:00+07:00`));
   const db = getDb();
+  await db.execute("DELETE FROM report_schedule");
+  await db.execute("DELETE FROM reporting_policy");
   await db.execute("DELETE FROM daily_report");
   await db.execute("DELETE FROM absence");
   await db.execute("DELETE FROM staff");
 });
 
+afterEach(() => vi.useRealTimers());
+
 describe("POST /api/reports", () => {
+  it("membuka pengiriman umum pukul 15.45 WIB dan menolak formulir lama tepat tengah malam", async () => {
+    const { cookie } = await seedStaff("budi");
+    const send = () => submit.POST(post({ tasks: ["a"], expectedDate: TODAY }, cookie));
+    vi.setSystemTime(new Date(`${TODAY}T15:44:59.999+07:00`));
+    expect((await send()).status).toBe(403);
+    vi.setSystemTime(new Date(`${TODAY}T15:45:00+07:00`));
+    expect((await send()).status).toBe(201);
+    vi.setSystemTime(new Date(`${addDays(TODAY, 1)}T00:00:00+07:00`));
+    expect((await send()).status).toBe(400);
+  });
+
+  it("memakai tanggal awal sif untuk jam kirim, piket, dan pengecualian Musyrif", async () => {
+    const start = "2026-11-15";
+    const morning = "2026-11-16";
+    vi.setSystemTime(new Date(`${morning}T07:14:59.999+07:00`));
+    const { id, cookie } = await seedStaff("musyrif");
+    const db = getDb();
+    await db.execute({ sql: "INSERT INTO report_schedule VALUES (?, ?, 1)", args: [id, start] });
+    await db.execute({ sql: "INSERT INTO reporting_policy VALUES (?, ?, 1)", args: [id, morning] });
+    const send = () => submit.POST(post({ tasks: ["Piket"], expectedDate: start }, cookie));
+    const status = async () => (await today.GET(get("https://staff.test/api/reports/today", cookie))).json();
+    expect(await status()).toMatchObject({ date: start, isWeekend: true, isOpen: false, reportingExempt: false });
+    expect((await send()).status).toBe(403);
+    vi.setSystemTime(new Date(`${morning}T07:15:00+07:00`));
+    expect(await status()).toMatchObject({ date: start, isOpen: true });
+    vi.setSystemTime(new Date(`${morning}T11:59:59.999+07:00`));
+    const result = await send();
+    expect(result.status).toBe(201);
+    expect(await result.json()).toMatchObject({ report: { reportDate: start, submittedAt: Date.now() } });
+    vi.setSystemTime(new Date(`${morning}T12:00:00+07:00`));
+    expect(await status()).toMatchObject({ date: morning, isWeekend: false, isOpen: false, reportingExempt: true });
+    expect((await send()).status).toBe(400);
+  });
+
   it("menyimpan laporan hari ini dengan Waktu Keluar dari server", async () => {
     const { id, cookie } = await seedStaff("budi");
     const before = Date.now();

@@ -1,5 +1,8 @@
 import type { Row } from "@libsql/client";
 import { z } from "zod";
+import { MUSYRIF } from "../../shared/jabatan.js";
+import { reportSchedule } from "./report-schedule.js";
+import { addDays } from "./time.js";
 
 export const JABATAN_LIST = [
   "Kepala Sekolah",
@@ -12,7 +15,7 @@ export const JABATAN_LIST = [
   "Kabid Sarpras",
   "Tim Diknas (Mentor)",
   "Tim IT",
-  "Tim Kesiswaan (Musyrif)",
+  MUSYRIF,
   "Tim Sarpras",
   "Branding & Marketing",
   "Resto & Mart",
@@ -99,13 +102,12 @@ export async function setJabatan(
   if (valid.length !== jabatanNama.length) return { error: "Jabatan tidak valid." };
   if (valid.length > MAX_JABATAN) return { error: `Maksimal ${MAX_JABATAN} jabatan per Staff.` };
 
-  // Ambil id jabatan
-  if (valid.length === 0) {
-    await db.execute({ sql: `DELETE FROM staff_jabatan WHERE staff_id = ? AND ${permission}`, args: [staffId] });
-    return null;
-  }
+  if (valid.includes(MUSYRIF) && valid.length !== 1) return { error: "Jabatan Musyrif tidak bisa dirangkap." };
+  if (new Set(valid).size !== valid.length) return { error: "Jabatan tidak boleh duplikat." };
+  const { date } = await reportSchedule(db, staffId, Date.now());
+  const effectiveDate = addDays(date, 1);
   const placeholders = valid.map(() => "?").join(",");
-  const jRows = (
+  const jRows = valid.length === 0 ? [] : (
     await db.execute({ sql: `SELECT id, nama FROM jabatan WHERE nama IN (${placeholders})`, args: valid })
   ).rows;
   const idMap = new Map(jRows.map((r) => [String(r.nama), Number(r.id)]));
@@ -117,6 +119,12 @@ export async function setJabatan(
         sql: `INSERT INTO staff_jabatan (staff_id, jabatan_id) SELECT ?, ? WHERE ${permission}`,
         args: [staffId, idMap.get(nama)!],
       })),
+      {
+        sql: `INSERT INTO report_schedule (staff_id, effective_date, musyrif)
+              SELECT ?, ?, ? WHERE ${permission}
+              ON CONFLICT (staff_id, effective_date) DO UPDATE SET musyrif = excluded.musyrif`,
+        args: [staffId, effectiveDate, Number(valid.includes(MUSYRIF))],
+      },
     ],
     "write",
   );

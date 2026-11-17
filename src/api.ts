@@ -47,6 +47,11 @@ export type Report = {
 };
 
 export type Today = {
+  opensAt: number;
+  closesAt: number;
+  serverTime: number;
+  isOpen: boolean;
+  hours: string;
   reportingExempt: boolean;
   date: string;
   isWeekend: boolean;
@@ -221,8 +226,8 @@ export const api = {
   today: () => request<Today>("/api/reports/today"),
   history: (before?: string) =>
     request<HistoryPage>(`/api/reports/history${before ? `?before=${encodeURIComponent(before)}` : ""}`),
-  submitReport: (tasks: string[], note: string) =>
-    request<{ report: Report }>("/api/reports", { method: "POST", body: JSON.stringify({ tasks, note }) }),
+  submitReport: (tasks: string[], note: string, expectedDate: string) =>
+    request<{ report: Report }>("/api/reports", { method: "POST", body: JSON.stringify({ tasks, note, expectedDate }) }),
   me: () => request<Me>("/api/auth/me", { signal: AbortSignal.timeout(10_000) }),
   loginAdmin: (username: string, password: string) =>
     request<Me>("/api/auth/login", { method: "POST", body: JSON.stringify({ mode: "admin", username, password }) }),

@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.TURSO_DATABASE_URL = ":memory:";
 process.env.SESSION_SECRET = "x".repeat(48);
@@ -77,11 +77,13 @@ beforeAll(async () => {
   await getDb().executeMultiple(sql3);
   const roles = await readFile(join(import.meta.dirname, "..", "..", "db", "migrations", "0005_delegated_admin.sql"), "utf8");
   await getDb().executeMultiple(roles);
+  await getDb().executeMultiple(await readFile(join(import.meta.dirname, "../../db/migrations/0007_report_schedule.sql"), "utf8"));
 });
 
 beforeEach(async () => {
   const db = getDb();
   await db.execute("DELETE FROM login_attempt");
+  await db.execute("DELETE FROM report_schedule");
   await db.execute("DELETE FROM daily_report");
   await db.execute("DELETE FROM absence");
   await db.execute("DELETE FROM staff");
@@ -325,11 +327,34 @@ describe("POST /api/admin/staff/jabatan", () => {
     const admin = await adminCookie();
     const { id } = await seedStaff();
     await jabatanEndpoint.POST(jabatanPost({ id, jabatan: ["Tim IT"] }, admin));
-    const res = await jabatanEndpoint.POST(jabatanPost({ id, jabatan: ["Tim Diknas (Mentor)", "Tim Kesiswaan (Musyrif)"] }, admin));
+    const res = await jabatanEndpoint.POST(jabatanPost({ id, jabatan: ["Tim Kesiswaan (Musyrif)"] }, admin));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.staff.jabatan).not.toContain("Tim IT");
-    expect(body.staff.jabatan).toHaveLength(2);
+    expect(body.staff.jabatan).toEqual(["Tim Kesiswaan (Musyrif)"]);
+  });
+
+  it("menolak rangkap Musyrif dan mempertahankan jadwal sif yang berjalan saat Jabatan dilepas", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-11-16T17:00:00+07:00"));
+      let admin = await adminCookie();
+      const { id } = await seedStaff();
+      const save = (jabatan: string[]) => jabatanEndpoint.POST(jabatanPost({ id, jabatan }, admin));
+      expect((await save(["Tim IT", "Tim Kesiswaan (Musyrif)"])).status).toBe(400);
+      expect((await save(["Tim Kesiswaan (Musyrif)"])).status).toBe(200);
+
+      vi.setSystemTime(new Date("2026-11-17T17:00:00+07:00"));
+      admin = await adminCookie();
+      expect((await save(["Tim IT"])).status).toBe(200);
+      const { reportSchedule } = await import("../_lib/report-schedule.js");
+      const scheduleAt = (at: string) => reportSchedule(getDb(), id, Date.parse(at));
+      expect(await scheduleAt("2026-11-16T17:00:00+07:00")).toMatchObject({ date: "2026-11-16", isOpen: true });
+      expect(await scheduleAt("2026-11-18T07:15:00+07:00")).toMatchObject({ date: "2026-11-17", isOpen: true });
+      expect(await scheduleAt("2026-11-18T12:00:00+07:00")).toMatchObject({ date: "2026-11-18", isOpen: false });
+      expect(await scheduleAt("2026-11-18T15:45:00+07:00")).toMatchObject({ date: "2026-11-18", isOpen: true });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("mengosongkan jabatan (array kosong)", async () => {

@@ -1,19 +1,33 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, type Report } from "../api";
 import { MAX_NOTE_LENGTH, MAX_TASK_LENGTH, MAX_TASKS } from "../../shared/report-limits";
 
 type Item = { id: number; text: string };
 
-export function ReportForm({ onSubmitted, onConflict }: { onSubmitted: (report: Report) => void; onConflict: () => void }) {
+export function ReportForm({ expectedDate, remainingMs, onSubmitted, onConflict }: {
+  expectedDate: string;
+  remainingMs: number;
+  onSubmitted: (report: Report) => void;
+  onConflict: () => void;
+}) {
   const nextId = useRef(2);
   const [items, setItems] = useState<Item[]>([{ id: 1, text: "" }]);
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [expired, setExpired] = useState(false);
   const lastInput = useRef<HTMLTextAreaElement | null>(null);
 
   const filled = items.map((i) => i.text.trim()).filter(Boolean);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setExpired(true);
+      setConfirming(false);
+    }, remainingMs);
+    return () => clearTimeout(timer);
+  }, [remainingMs]);
 
   function update(id: number, text: string) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, text } : i)));
@@ -31,6 +45,7 @@ export function ReportForm({ onSubmitted, onConflict }: { onSubmitted: (report: 
 
   function review(event: FormEvent) {
     event.preventDefault();
+    if (expired) return;
     setError(null);
     if (filled.length === 0) {
       setError("Isi minimal satu tugas.");
@@ -40,10 +55,11 @@ export function ReportForm({ onSubmitted, onConflict }: { onSubmitted: (report: 
   }
 
   async function send() {
+    if (expired) return;
     setBusy(true);
     setError(null);
     try {
-      const { report } = await api.submitReport(filled, note);
+      const { report } = await api.submitReport(filled, note, expectedDate);
       onSubmitted(report);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -94,6 +110,7 @@ export function ReportForm({ onSubmitted, onConflict }: { onSubmitted: (report: 
           <label>
             Tugas {index + 1}
             <textarea
+              readOnly={expired}
               ref={index === items.length - 1 ? lastInput : undefined}
               value={item.text}
               onChange={(e) => update(item.id, e.target.value)}
@@ -105,31 +122,32 @@ export function ReportForm({ onSubmitted, onConflict }: { onSubmitted: (report: 
             </small>
           </label>
           {items.length > 1 && (
-            <button type="button" className="secondary" onClick={() => remove(item.id)} aria-label={`Hapus tugas ${index + 1}`}>
+            <button type="button" className="secondary" disabled={expired} onClick={() => remove(item.id)} aria-label={`Hapus tugas ${index + 1}`}>
               Hapus
             </button>
           )}
         </div>
       ))}
       <div>
-        <button type="button" className="secondary" onClick={add} disabled={items.length >= MAX_TASKS}>
+        <button type="button" className="secondary" onClick={add} disabled={expired || items.length >= MAX_TASKS}>
           Tambah tugas
         </button>
         {items.length >= MAX_TASKS && <small className="muted"> Maksimal {MAX_TASKS} tugas.</small>}
       </div>
       <label>
         Catatan (opsional)
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={MAX_NOTE_LENGTH} rows={3} />
+        <textarea readOnly={expired} value={note} onChange={(e) => setNote(e.target.value)} maxLength={MAX_NOTE_LENGTH} rows={3} />
         <small className="muted">
           {note.length}/{MAX_NOTE_LENGTH}
         </small>
       </label>
-      {error && (
+      {expired && <p role="alert" className="notice">Batas waktu pengiriman sudah lewat. Isian masih bisa disalin.</p>}
+      {error && !expired && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
-      <button type="submit">Tinjau laporan</button>
+      <button type="submit" disabled={expired}>Tinjau laporan</button>
     </form>
   );
 }

@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.TURSO_DATABASE_URL = ":memory:";
 process.env.SESSION_SECRET = "x".repeat(48);
@@ -96,9 +96,12 @@ beforeAll(async () => {
   await getDb().executeMultiple(sql3);
   const roles = await readFile(join(import.meta.dirname, "..", "..", "db", "migrations", "0005_delegated_admin.sql"), "utf8");
   await getDb().executeMultiple(roles);
+  await getDb().executeMultiple(await readFile(join(import.meta.dirname, "../../db/migrations/0007_report_schedule.sql"), "utf8"));
 });
 
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(`${TODAY}T18:00:00+07:00`));
   const db = getDb();
   await db.execute("DELETE FROM correction_log");
   await db.execute("DELETE FROM daily_report");
@@ -106,6 +109,8 @@ beforeEach(async () => {
   await db.execute("DELETE FROM reporting_policy");
   await db.execute("DELETE FROM staff");
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("akses", () => {
   it("setiap endpoint baru menolak tanpa login (401) dan Staff (403)", async () => {
@@ -188,11 +193,11 @@ describe("delegasi Admin", () => {
       const promoted = await change(true, true);
       expect(await promoted.json()).toMatchObject({ effectiveDate: "2026-11-17" });
       expect(await identity()).toMatchObject({ isAdmin: true, reportingExempt: false });
-      expect((await submit.POST(post({ tasks: ["Laporan sebelum pengecualian"] }, account.cookie))).status).toBe(201);
+      expect((await submit.POST(post({ tasks: ["Laporan sebelum pengecualian"], expectedDate: "2026-11-16" }, account.cookie))).status).toBe(201);
 
       vi.setSystemTime(new Date("2026-11-16T17:00:00Z"));
       expect(await identity()).toMatchObject({ isAdmin: true, reportingExempt: true });
-      expect((await submit.POST(post({ tasks: ["Laporan saat dikecualikan"] }, account.cookie))).status).toBe(403);
+      expect((await submit.POST(post({ tasks: ["Laporan saat dikecualikan"], expectedDate: "2026-11-17" }, account.cookie))).status).toBe(403);
       expect((await getRecap("2026-11-16")).rows).toEqual([expect.objectContaining({ staffId: account.id, status: "terkirim" })]);
       expect((await getRecap("2026-11-17")).rows).toEqual([]);
       expect((await change(false, false)).status).toBe(200);
@@ -371,7 +376,7 @@ describe("POST /api/admin/absence/mark", () => {
       new Request("https://staff.test/api/reports", {
         method: "POST",
         headers: { "content-type": "application/json", cookie: budi.cookie },
-        body: JSON.stringify({ tasks: ["a"] }),
+        body: JSON.stringify({ tasks: ["a"], expectedDate: TODAY }),
       }),
     );
     expect(res.status).toBe(409);
@@ -516,7 +521,7 @@ describe("POST /api/admin/report/cancel", () => {
       new Request("https://staff.test/api/reports", {
         method: "POST",
         headers: { "content-type": "application/json", cookie: budi.cookie },
-        body: JSON.stringify({ tasks: ["lagi"] }),
+        body: JSON.stringify({ tasks: ["lagi"], expectedDate: TODAY }),
       }),
     );
     expect(resubmit.status).toBe(409);
