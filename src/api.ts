@@ -55,6 +55,7 @@ export type Today = {
   reportingExempt: boolean;
   date: string;
   isWeekend: boolean;
+  isPicket: boolean;
   report: Report | null;
   cancelled: boolean;
   absence: { category: string } | null;
@@ -74,6 +75,7 @@ export type RecapRow = {
   identifier: string;
   fullName: string;
   status: RecapStatus;
+  isPicket: boolean;
   report: Report | null;
   absence: { category: string; note: string | null } | null;
   cancelled: boolean;

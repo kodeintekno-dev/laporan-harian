@@ -92,6 +92,7 @@ export function StaffHome({
       {today?.report && (
         <section aria-labelledby="sent-title">
           <h2 id="sent-title">Laporan hari ini sudah terkirim</h2>
+          {today.isPicket && <p className="muted">Laporan piket</p>}
           <ReportView report={today.report} />
         </section>
       )}
@@ -99,8 +100,8 @@ export function StaffHome({
       {today && !today.reportingExempt && !today.report && !today.absence && !today.cancelled && (
         <section aria-labelledby="form-title">
           <h2 id="form-title">Laporan {formatDate(today.date)}</h2>
-          {today.isWeekend && (
-            <p className="notice">Hari ini akhir pekan. Mengirim laporan akan tercatat sebagai piket.</p>
+          {today.isPicket && (
+            <p className="notice">Laporan untuk tanggal ini akan tercatat sebagai piket.</p>
           )}
           {today.isOpen ? (
             <ReportForm

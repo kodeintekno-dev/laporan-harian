@@ -112,9 +112,6 @@ export function AdminRecap({ onLogout }: { onLogout: () => void }) {
             <div><dt>Tidak Hadir</dt><dd>{recap.summary.tidakHadir}</dd></div>
             <div><dt>Belum Mengirim</dt><dd>{recap.summary.belumMengirim}</dd></div>
           </dl>
-          {recap.isWeekend && (
-            <p className="muted">Akhir pekan: hanya Staff yang melapor atau ditandai Tidak Hadir yang tampil.</p>
-          )}
           {recap.rows.length === 0 && <p className="muted">Tidak ada Staff untuk ditampilkan pada tanggal ini.</p>}
           <ul className="staff-list recap-list">
             {recap.rows.map((row) => (
@@ -203,6 +200,7 @@ function RecapItem({
         </div>
         <span className={`badge badge-${row.status}`}>
           {STATUS_LABEL[row.status]}
+          {hasReport && row.isPicket && " · Piket"}
           {row.absence && ` (${row.absence.category})`}
         </span>
       </div>

@@ -100,9 +100,9 @@ describe("POST /api/reports", () => {
     const db = getDb();
     await db.execute({ sql: "INSERT INTO report_schedule VALUES (?, ?, 1)", args: [id, start] });
     await db.execute({ sql: "INSERT INTO reporting_policy VALUES (?, ?, 1)", args: [id, morning] });
-    const send = () => submit.POST(post({ tasks: ["Piket"], expectedDate: start }, cookie));
+    const send = () => submit.POST(post({ tasks: ["Jaga asrama"], expectedDate: start }, cookie));
     const status = async () => (await today.GET(get("https://staff.test/api/reports/today", cookie))).json();
-    expect(await status()).toMatchObject({ date: start, isWeekend: true, isOpen: false, reportingExempt: false });
+    expect(await status()).toMatchObject({ date: start, isPicket: false, isOpen: false, reportingExempt: false });
     expect((await send()).status).toBe(403);
     vi.setSystemTime(new Date(`${morning}T07:15:00+07:00`));
     expect(await status()).toMatchObject({ date: start, isOpen: true });
@@ -111,8 +111,20 @@ describe("POST /api/reports", () => {
     expect(result.status).toBe(201);
     expect(await result.json()).toMatchObject({ report: { reportDate: start, submittedAt: Date.now() } });
     vi.setSystemTime(new Date(`${morning}T15:00:00+07:00`));
-    expect(await status()).toMatchObject({ date: morning, isWeekend: false, isOpen: false, reportingExempt: true });
+    expect(await status()).toMatchObject({ date: morning, isPicket: false, isOpen: false, reportingExempt: true });
     expect((await send()).status).toBe(400);
+  });
+
+  it.each([
+    ["2026-11-13", "2026-11-14"],
+    ["2026-11-14", "2026-11-15"],
+  ])("menampilkan piket Musyrif untuk sif %s yang berakhir %s", async (start, end) => {
+    vi.setSystemTime(new Date(`${end}T08:00:00+07:00`));
+    const { id, cookie } = await seedStaff("musyrif");
+    await getDb().execute({ sql: "INSERT INTO report_schedule VALUES (?, ?, 1)", args: [id, start] });
+    const status = await (await today.GET(get("https://staff.test/api/reports/today", cookie))).json();
+
+    expect(status).toMatchObject({ date: start, isOpen: true, isPicket: true });
   });
 
   it("menyimpan laporan hari ini dengan Waktu Keluar dari server", async () => {

@@ -1,7 +1,12 @@
 import type { Client } from "@libsql/client";
-import { addDays, dateWib } from "./time.js";
+import { addDays, dateWib, isWeekend } from "./time.js";
 
 const MUSYRIF_CUTOFF = "15:00";
+
+/** Musyrif mengikuti akhir pekan pada hari sif berakhir. Tanggal laporan tetap tanggal mulai sif. */
+export function isPicket(date: string, musyrif: boolean): boolean {
+  return isWeekend(musyrif ? addDays(date, 1) : date);
+}
 
 export async function reportSchedule(db: Client, staffId: number, now: number) {
   const today = dateWib(now);
@@ -25,6 +30,7 @@ export async function reportSchedule(db: Client, staffId: number, now: number) {
     opensAt,
     closesAt,
     isOpen: now >= opensAt && now < closesAt,
+    isPicket: isPicket(date, musyrif),
     hours: musyrif ? "07.15 hingga sebelum 15.00 WIB esok hari" : "15.45–23.59 WIB",
   };
 }

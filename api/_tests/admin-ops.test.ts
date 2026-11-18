@@ -30,6 +30,7 @@ const TODAY = dateWib();
 // Tanggal tetap di masa lalu (Jumat dan Sabtu), supaya Koreksi tidak ditolak sebagai tanggal masa depan.
 const FRIDAY = "2026-11-06";
 const SATURDAY = "2026-11-07";
+const SUNDAY = "2026-11-08";
 
 async function seedStaff(email: string, status: "aktif" | "nonaktif" = "aktif"): Promise<{ id: number; cookie: string }> {
   const ep = 0;
@@ -107,6 +108,7 @@ beforeEach(async () => {
   await db.execute("DELETE FROM daily_report");
   await db.execute("DELETE FROM absence");
   await db.execute("DELETE FROM reporting_policy");
+  await db.execute("DELETE FROM report_schedule");
   await db.execute("DELETE FROM staff");
 });
 
@@ -271,6 +273,41 @@ describe("GET /api/admin/recap", () => {
     expect(body.isWeekend).toBe(true);
     expect(body.rows.map((r: { identifier: string }) => r.identifier).sort()).toEqual(["absen@test.id", "piket@test.id"]);
     expect(body.summary.belumMengirim).toBe(0);
+  });
+
+  it("menentukan piket dan Belum Mengirim berdasarkan jadwal jabatan pada tanggal rekap", async () => {
+    const admin = await adminCookie();
+    const musyrif = await seedStaff("musyrif@test.id");
+    const staff = await seedStaff("staff@test.id");
+    const db = getDb();
+    await db.execute({
+      sql: "INSERT INTO report_schedule VALUES (?, ?, 1), (?, ?, 0)",
+      args: [musyrif.id, FRIDAY, musyrif.id, "2026-11-09"],
+    });
+    const getRows = async (date: string) =>
+      (await (await recap.GET(get(`https://staff.test/api/admin/recap?date=${date}`, admin))).json()).rows;
+
+    expect(await getRows(FRIDAY)).toEqual([
+      expect.objectContaining({ staffId: staff.id, status: "belum_mengirim", isPicket: false }),
+    ]);
+    await insertReport(musyrif.id, FRIDAY);
+    expect(await getRows(FRIDAY)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ staffId: musyrif.id, status: "terkirim", isPicket: true }),
+    ]));
+
+    expect(await getRows(SATURDAY)).toEqual([]);
+    await insertReport(musyrif.id, SATURDAY, { source: "admin" });
+    expect(await getRows(SATURDAY)).toEqual([
+      expect.objectContaining({ staffId: musyrif.id, status: "diisi_admin", isPicket: true }),
+    ]);
+
+    expect(await getRows(SUNDAY)).toEqual([
+      expect.objectContaining({ staffId: musyrif.id, status: "belum_mengirim", isPicket: false }),
+    ]);
+    await insertReport(staff.id, SUNDAY);
+    expect(await getRows(SUNDAY)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ staffId: staff.id, status: "terkirim", isPicket: true }),
+    ]));
   });
 
   it("tanggal default hari ini dan format salah ditolak", async () => {

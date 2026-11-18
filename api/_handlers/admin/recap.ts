@@ -3,6 +3,7 @@ import { readQueryDate } from "../../_lib/admin.js";
 import { getDb } from "../../_lib/db.js";
 import { fail, json } from "../../_lib/http.js";
 import { toReportView, type ReportView } from "../../_lib/report.js";
+import { isPicket } from "../../_lib/report-schedule.js";
 import { dateWib, isWeekend } from "../../_lib/time.js";
 
 export type RecapStatus = "terkirim" | "diisi_admin" | "tidak_hadir" | "belum_mengirim";
@@ -12,6 +13,7 @@ type RecapRow = {
   identifier: string;
   fullName: string;
   status: RecapStatus;
+  isPicket: boolean;
   report: ReportView | null;
   absence: { category: string; note: string | null } | null;
   /** Ada laporan Dibatalkan pada tanggal ini: Staff tidak bisa mengirim ulang. */
@@ -22,8 +24,7 @@ type RecapRow = {
 /**
  * Rekap satu tanggal (default hari ini WIB). Isinya Staff Aktif, ditambah Staff nonaktif yang punya
  * laporan atau Tidak Hadir pada tanggal itu. Laporan Dibatalkan tidak dihitung sebagai laporan.
- * Di akhir pekan hanya Staff Piket (yang melapor) dan yang ditandai Tidak Hadir yang tampil,
- * tanpa baris "Belum Mengirim".
+ * Pada tanggal piket masing-masing Staff, baris tampil jika ada laporan atau tanda Tidak Hadir.
  */
 export async function GET(request: Request): Promise<Response> {
   const admin = await authenticateAdmin(request);
@@ -40,9 +41,12 @@ export async function GET(request: Request): Promise<Response> {
       sql: `SELECT id, email, full_name, display_name, status, is_admin,
                    COALESCE((SELECT exempt FROM reporting_policy
                              WHERE staff_id = staff.id AND effective_date <= ?
-                             ORDER BY effective_date DESC LIMIT 1), 0) AS reporting_exempt
+                             ORDER BY effective_date DESC LIMIT 1), 0) AS reporting_exempt,
+                   (SELECT musyrif FROM report_schedule
+                    WHERE staff_id = staff.id AND effective_date <= ?
+                    ORDER BY effective_date DESC LIMIT 1) AS musyrif
             FROM staff ORDER BY full_name COLLATE NOCASE, id`,
-      args: [date],
+      args: [date, date],
     }),
     db.execute({
       sql: `SELECT staff_id, report_date, tasks_json, note, submitted_at, source, status
@@ -64,11 +68,12 @@ export async function GET(request: Request): Promise<Response> {
     const reportRow = reports.get(staffId);
     const activeReport = reportRow && String(reportRow.status) === "aktif" ? reportRow : undefined;
     const absenceRow = absences.get(staffId);
+    const picket = isPicket(date, Number(s.musyrif) === 1);
 
     let status: RecapStatus;
     if (absenceRow) status = "tidak_hadir";
     else if (activeReport) status = String(activeReport.source) === "admin" ? "diisi_admin" : "terkirim";
-    else if (isActive && !weekend && Number(s.reporting_exempt) === 0) status = "belum_mengirim";
+    else if (isActive && !picket && Number(s.reporting_exempt) === 0) status = "belum_mengirim";
     else continue;
 
     rows.push({
@@ -76,6 +81,7 @@ export async function GET(request: Request): Promise<Response> {
       identifier,
       fullName: String(s.full_name),
       status,
+      isPicket: picket,
       report: activeReport ? toReportView(activeReport) : null,
       absence: absenceRow ? { category: String(absenceRow.category), note: absenceRow.note == null ? null : String(absenceRow.note) } : null,
       canCorrect: admin.staffId === null || (admin.staffId !== staffId && Number(s.is_admin) === 0),

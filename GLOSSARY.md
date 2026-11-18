@@ -73,7 +73,7 @@ Status Staff yang wajib mengirim Laporan Harian pada suatu tanggal tetapi belum 
 _Avoid_: Kosong, alpa
 
 **Staff Piket**:
-Staff yang mengirim Laporan Harian pada Sabtu atau Minggu.
+Staff yang mengirim Laporan Harian untuk hari piket. Hari piket jatuh pada Sabtu dan Minggu untuk jabatan lain. Untuk Musyrif, hari piket mengikuti tanggal mulai sif Jumat–Sabtu atau Sabtu–Minggu.
 _Avoid_: Lembur
 
 **Koreksi**:
