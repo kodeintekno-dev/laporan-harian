@@ -350,7 +350,8 @@ describe("POST /api/admin/staff/jabatan", () => {
       const scheduleAt = (at: string) => reportSchedule(getDb(), id, Date.parse(at));
       expect(await scheduleAt("2026-11-16T17:00:00+07:00")).toMatchObject({ date: "2026-11-16", isOpen: true });
       expect(await scheduleAt("2026-11-18T07:15:00+07:00")).toMatchObject({ date: "2026-11-17", isOpen: true });
-      expect(await scheduleAt("2026-11-18T12:00:00+07:00")).toMatchObject({ date: "2026-11-18", isOpen: false });
+      expect(await scheduleAt("2026-11-18T14:59:59+07:00")).toMatchObject({ date: "2026-11-17", isOpen: true });
+      expect(await scheduleAt("2026-11-18T15:00:00+07:00")).toMatchObject({ date: "2026-11-18", isOpen: false });
       expect(await scheduleAt("2026-11-18T15:45:00+07:00")).toMatchObject({ date: "2026-11-18", isOpen: true });
     } finally {
       vi.useRealTimers();

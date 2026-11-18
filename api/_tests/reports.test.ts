@@ -106,11 +106,11 @@ describe("POST /api/reports", () => {
     expect((await send()).status).toBe(403);
     vi.setSystemTime(new Date(`${morning}T07:15:00+07:00`));
     expect(await status()).toMatchObject({ date: start, isOpen: true });
-    vi.setSystemTime(new Date(`${morning}T11:59:59.999+07:00`));
+    vi.setSystemTime(new Date(`${morning}T14:59:59.999+07:00`));
     const result = await send();
     expect(result.status).toBe(201);
     expect(await result.json()).toMatchObject({ report: { reportDate: start, submittedAt: Date.now() } });
-    vi.setSystemTime(new Date(`${morning}T12:00:00+07:00`));
+    vi.setSystemTime(new Date(`${morning}T15:00:00+07:00`));
     expect(await status()).toMatchObject({ date: morning, isWeekend: false, isOpen: false, reportingExempt: true });
     expect((await send()).status).toBe(400);
   });
